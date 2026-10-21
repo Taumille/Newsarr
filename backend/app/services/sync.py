@@ -13,6 +13,7 @@ from . import settings as settings_service
 from .clients import qbittorrent_from_settings
 from .library import import_download
 from .qbittorrent import QBittorrentError, normalize_name
+from .torrent import magnet_info_hash
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +35,10 @@ async def sync_queue(db: Session) -> None:
 
     try:
         client = qbittorrent_from_settings(cfg)
-        hashes = [r.client_hash for r in records if r.client_hash]
-        torrents = await client.torrents(hashes or None)
+        # Fetch the whole torrent list instead of filtering by our stored hash.
+        # A missing/wrong hash would make a filtered query return nothing and
+        # the download would never be matched (progress stuck at 0%).
+        torrents = await client.torrents()
     except QBittorrentError as exc:
         logger.warning("Queue sync skipped: %s", exc)
         return
@@ -44,7 +47,12 @@ async def sync_queue(db: Session) -> None:
     by_name = {normalize_name(t.get("name", "")): t for t in torrents}
 
     for record in records:
-        torrent = by_hash.get((record.client_hash or "").lower())
+        torrent = by_hash.get((record.client_hash or "").lower()) if record.client_hash else None
+        if torrent is None and record.magnet_url:
+            # Self-heal records whose hash was lost: recover it from the magnet.
+            recovered = magnet_info_hash(record.magnet_url)
+            if recovered:
+                torrent = by_hash.get(recovered)
         if torrent is None:
             torrent = by_name.get(normalize_name(record.title))
         if torrent is None:

@@ -23,6 +23,21 @@ import httpx  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
+from app.services.torrent import _bencode, torrent_info_hash  # noqa: E402
+
+# A valid, minimal .torrent so the client can compute a real info hash.
+TORRENT_BYTES = _bencode(
+    {
+        b"announce": b"http://tracker.test/announce",
+        b"info": {
+            b"length": 1234,
+            b"name": b"The Guardian 2026-10-21",
+            b"piece length": 16384,
+            b"pieces": b"a" * 20,
+        },
+    }
+)
+EXPECTED_HASH = torrent_info_hash(TORRENT_BYTES)
 
 # --------------------------------------------------------------------------- #
 # Mock download file (what qBittorrent would have produced)
@@ -76,7 +91,7 @@ class MockProwlarr(BaseHTTPRequestHandler):
                 ]
             )
         elif self.path.startswith("/download"):
-            body = b"d8:announce4:teste"
+            body = TORRENT_BYTES
             self.send_response(200)
             self.send_header("Content-Type", "application/x-bittorrent")
             self.send_header("Content-Length", str(len(body)))
@@ -119,7 +134,7 @@ class MockQbittorrent(BaseHTTPRequestHandler):
                 json.dumps(
                     [
                         {
-                            "hash": "a" * 40,
+                            "hash": EXPECTED_HASH,
                             "name": RELEASE_TITLE,
                             "progress": 1.0,
                             "state": "uploading",
@@ -200,6 +215,11 @@ def main() -> None:
         check("grab ok", r.status_code == 201, r.text)
         record_id = r.json()["id"]
         check("client add called", bool(STATE["added"]))
+        check(
+            "computed info hash stored",
+            r.json()["client_hash"] == EXPECTED_HASH,
+            r.json()["client_hash"],
+        )
 
         print("Syncing queue (mock client reports complete)...")
         r = client.post("/api/v1/queue/sync")

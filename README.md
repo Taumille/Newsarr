@@ -126,7 +126,22 @@ PYTHONPATH=. .venv/bin/python tests/e2e_smoke.py
 
 The smoke test stands up mock Prowlarr + qBittorrent servers and exercises the
 full `search → grab → sync → import` pipeline. `qbit_error_paths.py` checks that
-login failures produce accurate messages.
+login failures produce accurate messages, and `torrent_hash.py` checks the
+info-hash maths against independently computed SHA-1 values.
+
+## Troubleshooting
+
+### A download stays at 0% in the Queue
+
+Newsarr identifies a grabbed download by its BitTorrent **info hash**, computed
+directly from the `.torrent` file (or the `btih` in a magnet link). If a record
+was grabbed by an older build that guessed the hash by torrent *name*, its
+`client_hash` may be wrong or empty. The queue sync now fetches the full torrent
+list, recovers hashes from stored magnets, and matches by name as a fallback.
+
+If a single old row still sits at 0%, use **Queue → Refresh now**; if it doesn't
+clear, remove it and grab the release again — new grabs always store the correct
+hash.
 
 ## Troubleshooting
 

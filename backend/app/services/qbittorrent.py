@@ -8,11 +8,9 @@ import re
 import httpx
 
 from ..schemas import Release
+from .torrent import magnet_info_hash, torrent_info_hash
 
 logger = logging.getLogger(__name__)
-
-# qBittorrent only cares about the 40-char info hash for magnets.
-_BTIH_RE = re.compile(r"btih:([0-9a-fA-F]{40})", re.IGNORECASE)
 
 
 class QBittorrentError(RuntimeError):
@@ -111,14 +109,21 @@ class QBittorrentClient:
             if category:
                 data["category"] = category
 
+            info_hash = ""
             magnet_url = release.magnet_url.strip()
             if magnet_url:
+                # A magnet carries the info hash; trust it.
+                info_hash = magnet_info_hash(magnet_url)
                 data["urls"] = magnet_url
                 resp = await client.post(f"{self.base_url}/api/v2/torrents/add", data=data)
             else:
                 blob = torrent_bytes
                 if blob is None:
                     blob = await self._download_torrent(release)
+                # Compute the info hash from the torrent metadata itself instead
+                # of guessing by name -- name matching is unreliable and was the
+                # reason a grabbed download could sit in the queue at 0%.
+                info_hash = torrent_info_hash(blob)
                 files = {"torrents": ("release.torrent", blob, "application/x-bittorrent")}
                 resp = await client.post(
                     f"{self.base_url}/api/v2/torrents/add", data=data, files=files
@@ -133,6 +138,9 @@ class QBittorrentClient:
                     "qBittorrent reported 'Fails.' -- the release may already exist or be unreachable."
                 )
 
+            if info_hash:
+                return info_hash
+            # Last resort (e.g. a magnet with no btih): fall back to name matching.
             return await self._resolve_hash(client, release, category)
 
     async def _download_torrent(self, release: Release) -> bytes:
@@ -146,9 +154,9 @@ class QBittorrentClient:
     async def _resolve_hash(
         self, client: httpx.AsyncClient, release: Release, category: str
     ) -> str:
-        match = _BTIH_RE.search(release.magnet_url or "")
+        match = magnet_info_hash(release.magnet_url)
         if match:
-            return match.group(1).lower()
+            return match
 
         params = {}
         if category:
@@ -157,15 +165,14 @@ class QBittorrentClient:
         if info.status_code >= 400:
             return ""
         target = normalize_name(release.title)
-        best = ""
+        if not target:
+            return ""
         for torrent in info.json():
             name = normalize_name(torrent.get("name", ""))
-            if not name:
-                continue
-            if target and (target in name or name in target):
+            if name and (target in name or name in target):
                 return (torrent.get("hash") or "").lower()
-            best = best or (torrent.get("hash") or "").lower()
-        return "" if not target else best
+        # Never guess: an unmatched name means we don't know the hash.
+        return ""
 
     async def torrents(self, hashes: list[str] | None = None) -> list[dict]:
         async with self._client() as client:
