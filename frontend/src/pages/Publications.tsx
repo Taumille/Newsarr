@@ -7,6 +7,8 @@ import { relativeTime } from '../format';
 export default function Publications() {
   const [items, setItems] = useState<Publication[] | null>(null);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [running, setRunning] = useState(false);
   const navigate = useNavigate();
 
   const load = useCallback(() => {
@@ -44,6 +46,23 @@ export default function Publications() {
     }
   };
 
+  const autoSearchAll = async () => {
+    setRunning(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await api.tasks.autoSearch();
+      setNotice(
+        `Searched ${result.publications} publication(s) — grabbed ${result.grabbed} new issue(s).`,
+      );
+      load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setRunning(false);
+    }
+  };
+
   return (
     <>
       <div className="page-head">
@@ -53,12 +72,18 @@ export default function Publications() {
             {items ? `${items.length} publication${items.length === 1 ? '' : 's'} tracked` : 'Loading…'}
           </div>
         </div>
-        <button className="primary" onClick={() => navigate('/add')}>
-          ＋ Add publication
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={autoSearchAll} disabled={running}>
+            {running ? 'Searching…' : '⤓ Auto-search all'}
+          </button>
+          <button className="primary" onClick={() => navigate('/add')}>
+            ＋ Add publication
+          </button>
+        </div>
       </div>
 
       {error && <div className="alert error">{error}</div>}
+      {notice && <div className="alert info">{notice}</div>}
 
       {items && items.length === 0 && (
         <div className="empty">

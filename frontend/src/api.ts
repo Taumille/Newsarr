@@ -55,6 +55,8 @@ export const api = {
       request<SearchResponse>(`/publications/${id}/search?extra=${encodeURIComponent(extra)}`, {
         method: 'POST',
       }),
+    autoSearch: (id: number) =>
+      request<DownloadRecord[]>(`/publications/${id}/auto-search`, { method: 'POST' }),
   },
 
   search: (query: string, categories = '') =>
@@ -91,5 +93,16 @@ export const api = {
         body: JSON.stringify(data),
       }),
     prowlarrIndexers: () => request<TestResult>('/settings/prowlarr/indexers'),
+  },
+
+  tasks: {
+    rssSync: () =>
+      request<{ publications: number; grabbed: number }>('/tasks/rss-sync', {
+        method: 'POST',
+      }),
+    autoSearch: () =>
+      request<{ publications: number; grabbed: number }>('/tasks/auto-search', {
+        method: 'POST',
+      }),
   },
 };

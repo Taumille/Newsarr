@@ -25,6 +25,8 @@ library importer) but is a small, readable standalone codebase.
 
 - **Track publications** — title, keywords, Newznab categories, language,
   country, preferred format, monitored flag, per-publication library folder.
+- **Automatic tracking** — an RSS-style poll plus a scheduled catch-up search
+  find and grab new issues for monitored publications without any manual work.
 - **Search Prowlarr** — aggregate search across every indexer in your Prowlarr
   instance, right from a publication's page.
 - **Grab releases** into qBittorrent (magnet links and `.torrent` URLs both work).
@@ -86,6 +88,57 @@ cd ../backend && .venv/bin/python run.py # API serves the built UI at :7878
 4. Newsarr polls qBittorrent in the background; when the download finishes it is
    imported into your library root and the queue row becomes *imported*.
 
+## Automatic issue tracking
+
+Newsarr runs two background cadences on top of the same decision logic, exactly
+like Radarr/Sonarr's RSS + scheduled search:
+
+| Task | Default | Behaviour |
+|---|---|---|
+| **RSS sync** | every 30 min | Checks indexers for issues published in a short recent window (default 72 h) and grabs them quickly. |
+| **Auto search** | every 6 h | Thorough catch-up within a look-back window (default 30 days), capped at *Max grabs per run* (default 3). |
+
+A release is grabbed only if it is **relevant** (shares a title token with the
+publication), **not already grabbed** (de-duplicated by GUID and normalised
+title), and **not older than the newest issue we already have** (so a backlog is
+never pulled in). When a publication has no history yet, the look-back window
+applies instead. Both cadences, their intervals, windows and the grab cap are
+configured under **Settings → Automation**.
+
+Manual triggers:
+
+- **Library → ⤓ Auto-search all** runs the catch-up search for every monitored
+  publication.
+- **A publication → ⤓ Auto-search** runs it for that title only.
+- Or call `POST /api/v1/tasks/rss-sync` / `POST /api/v1/tasks/auto-search`.
+
+> Implementation note: searches go through Prowlarr's aggregate `/api/v1/search`
+> rather than raw per-indexer Torznab feeds, so it works with any indexer setup
+> without extra configuration.
+
+## Sources & the French press
+
+Newsarr itself ships no catalog — Prowlarr's indexers are the "new issues"
+source. Enriching or extending that is a per-user choice:
+
+- **Metadata / discovery:** the [ISSN Portal public API](https://portal.issn.org/public-api-doc)
+  (title + variant titles, ISSN, country, medium) and Wikidata identify and
+  disambiguate titles; national libraries (Gallica/BnF, Chronicling America,
+  Europeana) cover historical runs.
+- **Extra download sources:** the [Internet Archive](https://archive.org/advancedsearch.php)
+  APIs are keyless and expose archived periodicals plus newly-added items; Calibre
+  [news recipes](https://manual.calibre-ebook.com/news.html) (see
+  [ping/newsrack](https://github.com/ping/newsrack)) fetch titles that never
+  appear on an indexer.
+- **French press specifically:** add French trackers/usenet indexers in Prowlarr
+  and target Newznab category `7010` (Books/Mags); for archives, **Gallica/BnF**
+  and **RetroNews** are free/authoritative, while **Europresse** and **Cafeyn**
+  are licensed commercial catalogs. Note that most current French dailies are
+  paywalled, so indexer coverage (and your own legal access) determines what can
+  actually be fetched.
+
+These are natural next integrations but are **not** implemented yet.
+
 ## Configuration reference
 
 | Setting | Meaning |
@@ -109,6 +162,7 @@ All endpoints are under `/api/v1` (interactive docs at `/docs`).
 | GET/POST | `/publications` | List / create publications. |
 | GET/PUT/DELETE | `/publications/{id}` | Read / update / remove. |
 | POST | `/publications/{id}/search` | Search Prowlarr for that publication. |
+| POST | `/publications/{id}/auto-search` | Run the automatic search for one publication. |
 | GET | `/search?query=` | Ad-hoc Prowlarr search. |
 | GET/POST | `/queue` | List the queue / grab a release. |
 | GET/DELETE | `/queue/{id}` | Inspect / remove a download. |
@@ -116,6 +170,8 @@ All endpoints are under `/api/v1` (interactive docs at `/docs`).
 | POST | `/queue/sync` | Force a queue/client reconcile. |
 | GET/PUT | `/settings` | Read / update configuration. |
 | POST | `/settings/test/{prowlarr,qbittorrent}` | Connection tests. |
+| POST | `/tasks/rss-sync` | Run the RSS sync now. |
+| POST | `/tasks/auto-search` | Run the catch-up auto search now. |
 
 ## Tests
 
@@ -184,7 +240,8 @@ for clients on localhost* in qBittorrent is the simplest fix.
 
 ### Roadmap
 
-- RSS / scheduled auto-search for monitored publications.
+- ISSN / Wikidata metadata enrichment when adding publications.
+- Internet Archive and Calibre-recipe source integrations.
 - Newznab/Torznab indexers added directly (not only via Prowlarr).
 - Post-processing hooks and notification integrations (Discord, ntfy…).
 - Authentication for the web UI.

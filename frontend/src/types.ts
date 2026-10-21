@@ -93,6 +93,13 @@ export interface Settings {
   qbittorrent_save_path: string;
   library_root: string;
   naming_template: string;
+  rss_sync_enabled: boolean;
+  rss_sync_interval_minutes: number;
+  rss_recent_hours: number;
+  auto_search_enabled: boolean;
+  auto_search_interval_minutes: number;
+  auto_search_recent_days: number;
+  auto_search_max_grabs: number;
   prowlarr_api_key_set: boolean;
   qbittorrent_password_set: boolean;
 }

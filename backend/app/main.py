@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,10 +14,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .api import publications, queue, search, settings as settings_api, system
+from .api import publications, queue, search, settings as settings_api, system, tasks
 from .config import settings as bootstrap
-from .database import init_db
-from .services.sync import sync_once
+from .database import SessionLocal, init_db
+from .services import settings as settings_service
+from .services.autosearch import run_auto_search, run_rss_sync
+from .services.sync import sync_queue
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,21 +27,43 @@ logging.basicConfig(
 )
 logger = logging.getLogger("newsarr")
 
+# How often the scheduler wakes up to check what is due.
+_SCHEDULER_TICK_SECONDS = 5
 
-async def _queue_loop() -> None:
-    """Periodically reconcile our queue with the download client."""
+
+async def _scheduler() -> None:
+    """Run the queue reconcile, RSS sync and auto-search on their own cadences."""
+    last = {"queue": 0.0, "rss": 0.0, "auto": 0.0}
     while True:
-        await asyncio.sleep(bootstrap.queue_poll_seconds)
+        await asyncio.sleep(_SCHEDULER_TICK_SECONDS)
+        db = SessionLocal()
         try:
-            await sync_once()
+            cfg = settings_service.get_map(db)
+            now = time.monotonic()
+
+            if now - last["queue"] >= bootstrap.queue_poll_seconds:
+                last["queue"] = now
+                await sync_queue(db)
+
+            rss_interval = max(60, settings_service.as_int(cfg, "rss_sync_interval_minutes", 30) * 60)
+            if settings_service.as_bool(cfg, "rss_sync_enabled", True) and now - last["rss"] >= rss_interval:
+                last["rss"] = now
+                await run_rss_sync(db)
+
+            auto_interval = max(60, settings_service.as_int(cfg, "auto_search_interval_minutes", 360) * 60)
+            if settings_service.as_bool(cfg, "auto_search_enabled", True) and now - last["auto"] >= auto_interval:
+                last["auto"] = now
+                await run_auto_search(db)
         except Exception:  # pragma: no cover - keep the loop alive
-            logger.exception("Background queue sync failed")
+            logger.exception("Scheduler tick failed")
+        finally:
+            db.close()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    task = asyncio.create_task(_queue_loop())
+    task = asyncio.create_task(_scheduler())
     logger.info("Newsarr %s starting (data dir: %s)", __version__, bootstrap.data_dir)
     try:
         yield
@@ -65,6 +90,7 @@ api_routers = [
     search.router,
     queue.router,
     settings_api.router,
+    tasks.router,
 ]
 for router in api_routers:
     app.include_router(router)

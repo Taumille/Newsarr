@@ -6,13 +6,13 @@ from .prowlarr import ProwlarrClient
 from .qbittorrent import QBittorrentClient
 
 
-def prowlarr_from_settings(cfg: dict[str, str]) -> ProwlarrClient:
-    return ProwlarrClient(cfg.get("prowlarr_url", ""), cfg.get("prowlarr_api_key", ""))
+def prowlarr_from_settings(cfg: dict[str, object]) -> ProwlarrClient:
+    return ProwlarrClient(str(cfg.get("prowlarr_url", "")), str(cfg.get("prowlarr_api_key", "")))
 
 
-def qbittorrent_from_settings(cfg: dict[str, str]) -> QBittorrentClient:
+def qbittorrent_from_settings(cfg: dict[str, object]) -> QBittorrentClient:
     return QBittorrentClient(
-        cfg.get("qbittorrent_url", ""),
-        cfg.get("qbittorrent_username", ""),
-        cfg.get("qbittorrent_password", ""),
+        str(cfg.get("qbittorrent_url", "")),
+        str(cfg.get("qbittorrent_username", "")),
+        str(cfg.get("qbittorrent_password", "")),
     )

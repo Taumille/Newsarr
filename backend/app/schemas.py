@@ -129,6 +129,18 @@ class SettingsModel(BaseModel):
     qbittorrent_save_path: str = ""
     library_root: str = ""
     naming_template: str = "{title} - {date}"
+
+    # Automation -------------------------------------------------------------
+    # Frequently re-checks indexers for very recent issues (RSS-style poll).
+    rss_sync_enabled: bool = True
+    rss_sync_interval_minutes: int = 30
+    rss_recent_hours: int = 72
+    # Less frequent, thorough catch-up search for missed issues.
+    auto_search_enabled: bool = True
+    auto_search_interval_minutes: int = 360
+    auto_search_recent_days: int = 30
+    auto_search_max_grabs: int = 3
+
     # Strip secrets when returning settings to the UI.
     prowlarr_api_key_set: bool = False
     qbittorrent_password_set: bool = False
@@ -144,6 +156,14 @@ class SettingsUpdate(BaseModel):
     qbittorrent_save_path: str | None = None
     library_root: str | None = None
     naming_template: str | None = None
+
+    rss_sync_enabled: bool | None = None
+    rss_sync_interval_minutes: int | None = None
+    rss_recent_hours: int | None = None
+    auto_search_enabled: bool | None = None
+    auto_search_interval_minutes: int | None = None
+    auto_search_recent_days: int | None = None
+    auto_search_max_grabs: int | None = None
 
 
 # --------------------------------------------------------------------------- #

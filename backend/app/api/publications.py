@@ -9,12 +9,14 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Publication, utcnow
 from ..schemas import (
+    DownloadRecordSchema,
     Publication as PublicationSchema,
     PublicationCreate,
     PublicationUpdate,
     SearchResponse,
 )
 from ..services import settings as settings_service
+from ..services.autosearch import process_publication
 from ..services.clients import prowlarr_from_settings
 from ..services.naming import slugify
 from ..services.prowlarr import ProwlarrError
@@ -105,3 +107,24 @@ async def search_publication(
     publication.last_search_at = utcnow()
     db.commit()
     return SearchResponse(query=build_query(publication, extra), releases=releases)
+
+
+@router.post("/{publication_id}/auto-search", response_model=list[DownloadRecordSchema])
+async def auto_search_publication(
+    publication_id: int,
+    db: Session = Depends(get_db),
+):
+    """Immediately run the automatic search for one publication and grab new issues."""
+    publication = _get_or_404(db, publication_id)
+    cfg = settings_service.get_map(db)
+    try:
+        grabbed = await process_publication(
+            db,
+            publication,
+            cfg,
+            recent_days=settings_service.as_int(cfg, "auto_search_recent_days", 30),
+            max_grabs=settings_service.as_int(cfg, "auto_search_max_grabs", 3),
+        )
+    except ProwlarrError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return grabbed

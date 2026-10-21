@@ -31,3 +31,4 @@ test:
 	cd backend && PYTHONPATH=. .venv/bin/python tests/qbit_error_paths.py
 	cd backend && PYTHONPATH=. .venv/bin/python tests/torrent_hash.py
 	cd backend && PYTHONPATH=. .venv/bin/python tests/background_loop.py
+	cd backend && PYTHONPATH=. .venv/bin/python tests/autosearch.py

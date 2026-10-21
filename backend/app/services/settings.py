@@ -31,7 +31,7 @@ def get_all(db: Session) -> SettingsModel:
     return model
 
 
-def get_map(db: Session) -> dict[str, str]:
+def get_map(db: Session) -> dict[str, object]:
     """Return the raw stored settings (including secrets) for internal use."""
     rows = db.execute(select(AppSetting)).scalars().all()
     stored = {row.key: row.value for row in rows}
@@ -40,6 +40,21 @@ def get_map(db: Session) -> dict[str, str]:
         if key in stored:
             data[key] = stored[key]
     return data
+
+
+def as_bool(cfg: dict[str, object], key: str, default: bool = False) -> bool:
+    value = cfg.get(key, default)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def as_int(cfg: dict[str, object], key: str, default: int) -> int:
+    value = cfg.get(key, default)
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
 
 
 def update(db: Session, patch: SettingsUpdate) -> SettingsModel:

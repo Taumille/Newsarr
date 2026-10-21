@@ -18,6 +18,7 @@ export default function PublicationDetail() {
   const [releases, setReleases] = useState<Release[] | null>(null);
   const [extra, setExtra] = useState('');
   const [grabbing, setGrabbing] = useState<string | null>(null);
+  const [autoBusy, setAutoBusy] = useState(false);
 
   const load = useCallback(() => {
     api.publications
@@ -76,6 +77,25 @@ export default function PublicationDetail() {
     }
   };
 
+  const autoSearch = async () => {
+    setAutoBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const grabbed = await api.publications.autoSearch(publicationId);
+      setNotice(
+        grabbed.length
+          ? `Auto-grabbed ${grabbed.length} new issue(s).`
+          : 'No new issues found.',
+      );
+      load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setAutoBusy(false);
+    }
+  };
+
   if (!publication) {
     return (
       <div className="empty">
@@ -109,6 +129,9 @@ export default function PublicationDetail() {
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="primary" onClick={search} disabled={searching}>
             {searching ? 'Searching…' : '🔍 Search for releases'}
+          </button>
+          <button onClick={autoSearch} disabled={autoBusy}>
+            {autoBusy ? 'Searching…' : '⤓ Auto-search'}
           </button>
           <button onClick={() => navigate('/queue')}>View queue</button>
         </div>

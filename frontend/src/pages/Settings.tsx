@@ -168,6 +168,97 @@ export default function SettingsPage() {
         </section>
 
         <section className="card">
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Automation</h2>
+          <span className="hint">
+            When enabled, Newsarr searches Prowlarr for your monitored publications and
+            automatically grabs new issues.
+          </span>
+
+          <div className="field" style={{ marginTop: 14 }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={values.rss_sync_enabled}
+                onChange={(e) => set('rss_sync_enabled', e.target.checked)}
+                style={{ width: 'auto', marginRight: 8 }}
+              />
+              RSS sync
+            </label>
+            <span className="hint">Frequently checks for very recent issues.</span>
+          </div>
+          <div className="form-row">
+            <div className="field">
+              <label htmlFor="rss_interval">RSS sync interval (minutes)</label>
+              <input
+                id="rss_interval"
+                type="number"
+                min={1}
+                value={values.rss_sync_interval_minutes}
+                onChange={(e) => set('rss_sync_interval_minutes', Number(e.target.value) || 0)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="rss_hours">Recent window (hours)</label>
+              <input
+                id="rss_hours"
+                type="number"
+                min={1}
+                value={values.rss_recent_hours}
+                onChange={(e) => set('rss_recent_hours', Number(e.target.value) || 0)}
+              />
+            </div>
+          </div>
+
+          <div className="field">
+            <label>
+              <input
+                type="checkbox"
+                checked={values.auto_search_enabled}
+                onChange={(e) => set('auto_search_enabled', e.target.checked)}
+                style={{ width: 'auto', marginRight: 8 }}
+              />
+              Auto search
+            </label>
+            <span className="hint">Thorough catch-up search for anything RSS sync missed.</span>
+          </div>
+          <div className="form-row">
+            <div className="field">
+              <label htmlFor="auto_interval">Auto search interval (minutes)</label>
+              <input
+                id="auto_interval"
+                type="number"
+                min={1}
+                value={values.auto_search_interval_minutes}
+                onChange={(e) =>
+                  set('auto_search_interval_minutes', Number(e.target.value) || 0)
+                }
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="auto_days">Look back (days)</label>
+              <input
+                id="auto_days"
+                type="number"
+                min={1}
+                value={values.auto_search_recent_days}
+                onChange={(e) => set('auto_search_recent_days', Number(e.target.value) || 0)}
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="max_grabs">Max grabs per run</label>
+            <input
+              id="max_grabs"
+              type="number"
+              min={1}
+              value={values.auto_search_max_grabs}
+              onChange={(e) => set('auto_search_max_grabs', Number(e.target.value) || 0)}
+            />
+            <span className="hint">Caps how many issues a single run will grab.</span>
+          </div>
+        </section>
+
+        <section className="card">
           <h2 style={{ marginTop: 0, fontSize: 16 }}>Library</h2>
           <div className="field">
             <label htmlFor="library_root">Library root</label>
