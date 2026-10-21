@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Run npm through the local compatibility wrapper (see npm.js).
+exec node "$(dirname "$0")/npm.js" "$@"
