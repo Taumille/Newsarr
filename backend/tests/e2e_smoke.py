@@ -23,6 +23,8 @@ import httpx  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
+from app.database import SessionLocal  # noqa: E402
+from app.models import DownloadRecord, TrackedStatus  # noqa: E402
 from app.services.torrent import _bencode, torrent_info_hash  # noqa: E402
 
 # A valid, minimal .torrent so the client can compute a real info hash.
@@ -135,7 +137,9 @@ class MockQbittorrent(BaseHTTPRequestHandler):
                     [
                         {
                             "hash": EXPECTED_HASH,
-                            "name": RELEASE_TITLE,
+                            # Deliberately different from the release title so
+                            # name-based matching cannot succeed.
+                            "name": "Guardian 2026 10 21",
                             "progress": 1.0,
                             "state": "uploading",
                             "save_path": str(DOWNLOAD_DIR),
@@ -221,6 +225,12 @@ def main() -> None:
             r.json()["client_hash"],
         )
 
+        print("Diagnostics must show the record matched by hash...")
+        diag = client.get("/api/v1/queue/diagnostics").json()
+        check("client reachable", diag["client"].get("reachable") is True, diag["client"])
+        row = next(x for x in diag["records"] if x["id"] == record_id)
+        check("matched_by == hash", row["matched_by"] == "hash", row)
+
         print("Syncing queue (mock client reports complete)...")
         r = client.post("/api/v1/queue/sync")
         check("sync ok", r.status_code == 200, r.text)
@@ -241,6 +251,33 @@ def main() -> None:
         status = client.get("/api/v1/system/status").json()
         check("prowlarr configured", status["prowlarr_configured"] is True)
         check("client configured", status["download_client_configured"] is True)
+
+        print("Self-heal: legacy record with no usable hash...")
+        # Recreate the 'downloaded' file (the first import moved it away).
+        COMPLETED_FILE.write_bytes(b"%PDF-1.4 second issue\n")
+        STATE["added"] = False
+        r = client.post("/api/v1/queue", json={"publication_id": pub_id, "release": release})
+        legacy_id = r.json()["id"]
+        # Simulate a row grabbed before we computed hashes: wipe hash + magnet.
+        # The torrent's name also differs from the title, so only recomputing the
+        # hash from download_url can match it.
+        session = SessionLocal()
+        legacy = session.get(DownloadRecord, legacy_id)
+        legacy.client_hash = ""
+        legacy.magnet_url = ""
+        legacy.status = TrackedStatus.queued
+        legacy.progress = 0
+        session.commit()
+        session.close()
+
+        diag = client.get("/api/v1/queue/diagnostics").json()
+        row = next(x for x in diag["records"] if x["id"] == legacy_id)
+        check("legacy row unmatched before heal", row["matched_by"] is None, row)
+
+        client.post("/api/v1/queue/sync")
+        legacy = client.get(f"/api/v1/queue/{legacy_id}").json()
+        check("self-heal recovered hash", legacy["client_hash"] == EXPECTED_HASH, legacy["client_hash"])
+        check("self-heal imported", legacy["status"] == "imported", legacy["status"])
 
         print("Checking SPA is served...")
         r = client.get("/")

@@ -70,6 +70,9 @@ export default function Queue() {
           </div>
         </div>
         <button onClick={sync}>↻ Refresh now</button>
+        <button onClick={() => window.open('/api/v1/queue/diagnostics', '_blank')}>
+          Diagnostics
+        </button>
       </div>
 
       {error && <div className="alert error">{error}</div>}
@@ -126,9 +129,9 @@ export default function Queue() {
                   <td>{formatBytes(record.size)}</td>
                   <td>{formatDateTime(record.added_at)}</td>
                   <td className="actions">
-                    {record.status === 'failed' && (
+                    {record.status !== 'imported' && (
                       <button className="small" onClick={() => retry(record)}>
-                        Retry
+                        Re-check
                       </button>
                     )}{' '}
                     <button className="small danger" onClick={() => remove(record)}>

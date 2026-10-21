@@ -22,6 +22,20 @@ def normalize_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", (name or "").lower())
 
 
+async def fetch_torrent_hash(url: str, timeout: float = 30.0) -> str:
+    """Download a .torrent URL and compute its info hash ('' on failure)."""
+    if not url:
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            resp = await client.get(url)
+            if resp.status_code >= 400:
+                return ""
+            return torrent_info_hash(resp.content)
+    except httpx.HTTPError:
+        return ""
+
+
 class QBittorrentClient:
     def __init__(
         self,

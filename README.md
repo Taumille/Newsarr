@@ -134,14 +134,24 @@ info-hash maths against independently computed SHA-1 values.
 ### A download stays at 0% in the Queue
 
 Newsarr identifies a grabbed download by its BitTorrent **info hash**, computed
-directly from the `.torrent` file (or the `btih` in a magnet link). If a record
-was grabbed by an older build that guessed the hash by torrent *name*, its
-`client_hash` may be wrong or empty. The queue sync now fetches the full torrent
-list, recovers hashes from stored magnets, and matches by name as a fallback.
+directly from the `.torrent` file (or the `btih` in a magnet link). The queue
+sync fetches the **full** torrent list, recovers hashes from stored magnets or by
+re-downloading the release's `.torrent`, falls back to name matching, and logs a
+warning for anything it cannot match.
 
-If a single old row still sits at 0%, use **Queue → Refresh now**; if it doesn't
-clear, remove it and grab the release again — new grabs always store the correct
-hash.
+If a row is stuck:
+
+1. Click **Queue → Diagnostics** (opens `/api/v1/queue/diagnostics`). It shows
+   every qBittorrent torrent (hash, name, progress, state) next to every Newsarr
+   record and how each one matched (`matched_by`: `hash` / `magnet` / `name` /
+   `null`).
+2. Click **Queue → Re-check** on the row to recompute its hash and re-sync.
+3. If `matched_by` is non-null but `progress` is still `0`, the torrent is still
+   at 0% **in qBittorrent** — check its state (`stalledDL`/`metaDL` usually means
+   the payload or tracker is unreachable).
+
+If a row simply cannot be matched, remove it and grab the release again — new
+grabs always store the correct hash.
 
 ## Troubleshooting
 
