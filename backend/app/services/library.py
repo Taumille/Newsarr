@@ -97,7 +97,7 @@ def import_download(db: Session, record: DownloadRecord) -> DownloadRecord:
         counter += 1
 
     try:
-        shutil.move(str(source), str(target))
+        shutil.copy2(str(source), str(target))
     except OSError:
         # Cross-device moves are not always supported by rename().
         shutil.copy2(str(source), str(target))
