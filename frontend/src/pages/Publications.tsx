@@ -95,47 +95,73 @@ export default function Publications() {
       )}
 
       <div className="grid">
-        {items?.map((publication) => (
-          <div className="pub-card" key={publication.id}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-              <Link to={`/publications/${publication.id}`}>
-                <h3>{publication.title}</h3>
+        {items?.map((publication) => {
+          const cover = publication.has_cover
+            ? `/api/v1/publications/${publication.id}/cover?v=${encodeURIComponent(publication.updated_at)}`
+            : publication.cover_url;
+          return (
+            <div className="pub-card" key={publication.id}>
+              <Link to={`/publications/${publication.id}`} className="pub-cover-link">
+                {cover ? (
+                  <img className="pub-cover" src={cover} alt={`${publication.title} cover`} />
+                ) : (
+                  <div className="pub-cover cover-placeholder">
+                    {publication.title.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
               </Link>
-              <span className={`badge ${publication.monitored ? 'monitored' : 'unmonitored'}`}>
-                {publication.monitored ? 'Monitored' : 'Paused'}
-              </span>
-            </div>
 
-            <div className="meta">
-              {publication.preferred_format !== 'any' && (
-                <span className="badge">{publication.preferred_format}</span>
-              )}
-              {publication.language && <span className="badge">{publication.language}</span>}
-              {publication.country && <span className="badge">{publication.country}</span>}
-              {publication.categories.split(',').filter(Boolean).map((cat) => (
-                <span className="badge" key={cat}>
-                  {cat.trim()}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <Link to={`/publications/${publication.id}`}>
+                  <h3>{publication.title}</h3>
+                </Link>
+                <span className={`badge ${publication.monitored ? 'monitored' : 'unmonitored'}`}>
+                  {publication.monitored ? 'Monitored' : 'Paused'}
                 </span>
-              ))}
-            </div>
+              </div>
 
-            <div className="meta">
-              <span>Last search: {relativeTime(publication.last_search_at)}</span>
-            </div>
+              <div className="issue-counts">
+                <span className="issue-status owned">{publication.issue_owned} owned</span>
+                <span className="issue-status missing">{publication.issue_missing} missing</span>
+                {publication.issue_total > 0 && (
+                  <span className="badge">{publication.issue_total} issues</span>
+                )}
+              </div>
 
-            <div className="actions">
-              <Link to={`/publications/${publication.id}`}>
-                <button className="small">Open</button>
-              </Link>
-              <button className="small" onClick={() => toggleMonitored(publication)}>
-                {publication.monitored ? 'Pause' : 'Resume'}
-              </button>
-              <button className="small danger" onClick={() => remove(publication)}>
-                Remove
-              </button>
+              <div className="meta">
+                {publication.frequency !== 'irregular' && (
+                  <span className="badge">{publication.frequency}</span>
+                )}
+                {publication.preferred_format !== 'any' && (
+                  <span className="badge">{publication.preferred_format}</span>
+                )}
+                {publication.language && <span className="badge">{publication.language}</span>}
+                {publication.country && <span className="badge">{publication.country}</span>}
+                {publication.categories.split(',').filter(Boolean).map((cat) => (
+                  <span className="badge" key={cat}>
+                    {cat.trim()}
+                  </span>
+                ))}
+              </div>
+
+              <div className="meta">
+                <span>Last search: {relativeTime(publication.last_search_at)}</span>
+              </div>
+
+              <div className="actions">
+                <Link to={`/publications/${publication.id}`}>
+                  <button className="small">Open</button>
+                </Link>
+                <button className="small" onClick={() => toggleMonitored(publication)}>
+                  {publication.monitored ? 'Pause' : 'Resume'}
+                </button>
+                <button className="small danger" onClick={() => remove(publication)}>
+                  Remove
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );

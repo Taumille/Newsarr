@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .models import DownloadProtocol, TrackedStatus
+from .models import DownloadProtocol, IssueStatus, TrackedStatus
 
 
 # --------------------------------------------------------------------------- #
@@ -23,6 +23,11 @@ class PublicationBase(BaseModel):
     folder: str = ""
     cover_url: str = ""
 
+    # Publication schedule (used to generate the issue calendar).
+    frequency: str = "irregular"
+    weekday: int | None = None
+    start_date: date | None = None
+
 
 class PublicationCreate(PublicationBase):
     pass
@@ -38,6 +43,9 @@ class PublicationUpdate(BaseModel):
     preferred_format: str | None = None
     folder: str | None = None
     cover_url: str | None = None
+    frequency: str | None = None
+    weekday: int | None = None
+    start_date: date | None = None
 
 
 class Publication(PublicationBase):
@@ -45,9 +53,62 @@ class Publication(PublicationBase):
 
     id: int
     slug: str
+    has_cover: bool = False
     created_at: datetime
     updated_at: datetime
     last_search_at: datetime | None = None
+
+    # Issue-catalog counts (filled in by the list/detail endpoints).
+    issue_total: int = 0
+    issue_owned: int = 0
+    issue_missing: int = 0
+    issue_upcoming: int = 0
+
+
+# --------------------------------------------------------------------------- #
+# Issues (the dated catalog of a publication)
+# --------------------------------------------------------------------------- #
+class IssueSummary(BaseModel):
+    total: int = 0
+    owned: int = 0
+    missing: int = 0
+    upcoming: int = 0
+    grabbed: int = 0
+    ignored: int = 0
+
+
+class Issue(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    publication_id: int
+    issue_date: date
+    label: str
+    status: IssueStatus
+    download_id: int | None = None
+    file_path: str
+    notes: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class IssueListResponse(BaseModel):
+    issues: list[Issue]
+    summary: IssueSummary
+    total: int
+    offset: int
+    limit: int
+
+
+class IssueUpdate(BaseModel):
+    status: IssueStatus | None = None
+    label: str | None = None
+    notes: str | None = None
+    file_path: str | None = None
+
+
+class IssueSearchMissingRequest(BaseModel):
+    max_grabs: int = Field(default=10, ge=1, le=100)
 
 
 # --------------------------------------------------------------------------- #
@@ -85,6 +146,7 @@ class SearchResponse(BaseModel):
 # --------------------------------------------------------------------------- #
 class GrabRequest(BaseModel):
     publication_id: int | None = None
+    issue_id: int | None = None
     release: Release
 
 

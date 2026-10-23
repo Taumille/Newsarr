@@ -14,7 +14,15 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .api import publications, queue, search, settings as settings_api, system, tasks
+from .api import (
+    issues,
+    publications,
+    queue,
+    search,
+    settings as settings_api,
+    system,
+    tasks,
+)
 from .config import settings as bootstrap
 from .database import SessionLocal, init_db
 from .services import settings as settings_service
@@ -87,6 +95,7 @@ app.add_middleware(
 api_routers = [
     system.router,
     publications.router,
+    issues.router,
     search.router,
     queue.router,
     settings_api.router,

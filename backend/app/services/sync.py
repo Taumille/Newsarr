@@ -8,7 +8,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import SessionLocal
-from ..models import DownloadProtocol, DownloadRecord, TrackedStatus, utcnow
+from ..models import (
+    DownloadProtocol,
+    DownloadRecord,
+    Issue,
+    IssueStatus,
+    TrackedStatus,
+    utcnow,
+)
 from . import settings as settings_service
 from .clients import qbittorrent_from_settings
 from .library import import_download
@@ -99,6 +106,13 @@ async def sync_queue(db: Session) -> None:
         if state in FAILED_STATES:
             record.status = TrackedStatus.failed
             record.error_message = f"qBittorrent state: {state}"
+            issue = db.execute(
+                select(Issue).where(Issue.download_id == record.id)
+            ).scalar_one_or_none()
+            if issue is not None and issue.status == IssueStatus.grabbed:
+                # Let the issue become searchable/missing again.
+                issue.status = IssueStatus.expected
+                issue.download_id = None
         elif state in COMPLETE_STATES or record.progress >= 100:
             record.status = TrackedStatus.completed
             record.progress = 100

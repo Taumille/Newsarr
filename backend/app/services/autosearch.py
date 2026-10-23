@@ -26,6 +26,7 @@ from ..schemas import Release
 from . import settings as settings_service
 from .clients import prowlarr_from_settings
 from .grab import GrabError, grab_release
+from .issues import sync_calendar
 from .prowlarr import ProwlarrClient, ProwlarrError
 from .qbittorrent import normalize_name
 from .search import build_query, parse_categories
@@ -137,6 +138,9 @@ async def process_publication(
 ) -> list[DownloadRecord]:
     if not publication.monitored:
         return []
+
+    # Keep the expected-issue calendar in step with the passing weeks/months.
+    sync_calendar(db, publication)
 
     client = client or prowlarr_from_settings(cfg)
     releases = await client.search(

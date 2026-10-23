@@ -4,6 +4,8 @@ import { api } from '../api';
 import type { Publication, PublicationInput, Release } from '../types';
 import { formatBytes, formatDate } from '../format';
 import PublicationForm from '../components/PublicationForm';
+import CoverPanel from '../components/CoverPanel';
+import IssueLibrary from '../components/IssueLibrary';
 
 export default function PublicationDetail() {
   const { id } = useParams();
@@ -19,6 +21,7 @@ export default function PublicationDetail() {
   const [extra, setExtra] = useState('');
   const [grabbing, setGrabbing] = useState<string | null>(null);
   const [autoBusy, setAutoBusy] = useState(false);
+  const [issueVersion, setIssueVersion] = useState(0);
 
   const load = useCallback(() => {
     api.publications
@@ -37,6 +40,8 @@ export default function PublicationDetail() {
     try {
       await api.publications.update(publicationId, values);
       load();
+      // Frequency / start date changes rebuild the calendar server-side.
+      setIssueVersion((value) => value + 1);
       setNotice('Saved.');
     } catch (err) {
       setError((err as Error).message);
@@ -114,6 +119,9 @@ export default function PublicationDetail() {
     preferred_format: publication.preferred_format,
     folder: publication.folder,
     cover_url: publication.cover_url,
+    frequency: publication.frequency,
+    weekday: publication.weekday,
+    start_date: publication.start_date,
   };
 
   return (
@@ -124,7 +132,16 @@ export default function PublicationDetail() {
             <Link to="/">← Library</Link>
           </div>
           <h1>{publication.title}</h1>
-          <div className="sub">Slug: {publication.slug}</div>
+          <div className="sub">
+            {publication.frequency === 'irregular'
+              ? 'Irregular schedule'
+              : `${publication.frequency}${publication.weekday !== null ? ` · ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][publication.weekday]}` : ''}`}
+            {publication.start_date ? ` · since ${publication.start_date}` : ''}
+          </div>
+          <div className="sub">
+            {publication.issue_owned} owned · {publication.issue_missing} missing ·{' '}
+            {publication.issue_upcoming} upcoming
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="primary" onClick={search} disabled={searching}>
@@ -140,18 +157,27 @@ export default function PublicationDetail() {
       {error && <div className="alert error">{error}</div>}
       {notice && <div className="alert success">{notice}</div>}
 
-      <div style={{ maxWidth: 720, marginBottom: 28 }}>
-        <h2 style={{ fontSize: 16 }}>Settings</h2>
-        <PublicationForm
-          key={publication.id}
-          initial={initial}
-          submitLabel="Save changes"
-          busy={busy}
-          onSubmit={save}
-        />
+      <div className="detail-top">
+        <CoverPanel publication={publication} onChanged={load} />
+        <div className="detail-settings">
+          <h2 style={{ fontSize: 16 }}>Settings</h2>
+          <PublicationForm
+            key={publication.id}
+            initial={initial}
+            submitLabel="Save changes"
+            busy={busy}
+            onSubmit={save}
+          />
+        </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
+      <IssueLibrary
+        publicationId={publication.id}
+        refreshKey={issueVersion}
+        onChanged={load}
+      />
+
+      <div className="card" style={{ margin: '20px 0 16px' }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
           <div className="field" style={{ flex: 1, marginBottom: 0 }}>
             <label htmlFor="extra">Extra search terms (optional)</label>

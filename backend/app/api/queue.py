@@ -104,7 +104,9 @@ async def diagnostics(db: Session = Depends(get_db)):
 @router.post("", response_model=DownloadRecordSchema, status_code=201)
 async def grab(payload: GrabRequest, db: Session = Depends(get_db)):
     try:
-        record = await grab_release(db, payload.release, payload.publication_id)
+        record = await grab_release(
+            db, payload.release, payload.publication_id, issue_id=payload.issue_id
+        )
     except GrabError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return record

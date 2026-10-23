@@ -7,6 +7,14 @@ export type TrackedStatus =
 
 export type Protocol = 'torrent' | 'usenet';
 
+export type Frequency =
+  | 'irregular'
+  | 'daily'
+  | 'weekly'
+  | 'biweekly'
+  | 'monthly'
+  | 'quarterly';
+
 export interface Publication {
   id: number;
   title: string;
@@ -19,6 +27,14 @@ export interface Publication {
   preferred_format: string;
   folder: string;
   cover_url: string;
+  frequency: Frequency;
+  weekday: number | null;
+  start_date: string | null;
+  has_cover: boolean;
+  issue_total: number;
+  issue_owned: number;
+  issue_missing: number;
+  issue_upcoming: number;
   created_at: string;
   updated_at: string;
   last_search_at: string | null;
@@ -34,6 +50,9 @@ export interface PublicationInput {
   preferred_format: string;
   folder: string;
   cover_url: string;
+  frequency: Frequency;
+  weekday: number | null;
+  start_date: string | null;
 }
 
 export interface ReleaseCategory {
@@ -60,6 +79,46 @@ export interface SearchResponse {
   query: string;
   releases: Release[];
 }
+
+export type IssueStatus = 'expected' | 'grabbed' | 'owned' | 'ignored';
+
+export interface Issue {
+  id: number;
+  publication_id: number;
+  issue_date: string;
+  label: string;
+  status: IssueStatus;
+  download_id: number | null;
+  file_path: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IssueSummary {
+  total: number;
+  owned: number;
+  missing: number;
+  upcoming: number;
+  grabbed: number;
+  ignored: number;
+}
+
+export interface IssueList {
+  issues: Issue[];
+  summary: IssueSummary;
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export type IssueFilter =
+  | 'all'
+  | 'missing'
+  | 'owned'
+  | 'grabbed'
+  | 'upcoming'
+  | 'ignored';
 
 export interface DownloadRecord {
   id: number;

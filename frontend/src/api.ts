@@ -1,5 +1,9 @@
 import type {
   DownloadRecord,
+  Issue,
+  IssueFilter,
+  IssueList,
+  IssueStatus,
   Publication,
   PublicationInput,
   Release,
@@ -12,9 +16,10 @@ import type {
 const BASE = '/api/v1';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const isForm = typeof FormData !== 'undefined' && init?.body instanceof FormData;
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...init,
+    headers: isForm ? init?.headers : { 'Content-Type': 'application/json', ...init?.headers },
   });
 
   if (!res.ok) {
@@ -57,6 +62,53 @@ export const api = {
       }),
     autoSearch: (id: number) =>
       request<DownloadRecord[]>(`/publications/${id}/auto-search`, { method: 'POST' }),
+    uploadCover: (id: number, file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      return request<Publication>(`/publications/${id}/cover`, {
+        method: 'POST',
+        body: form,
+      });
+    },
+    removeCover: (id: number) =>
+      request<Publication>(`/publications/${id}/cover`, { method: 'DELETE' }),
+  },
+
+  issues: {
+    list: (publicationId: number, status: IssueFilter = 'all', limit = 500) =>
+      request<IssueList>(
+        `/publications/${publicationId}/issues?status=${encodeURIComponent(status)}&limit=${limit}`,
+      ),
+    generate: (publicationId: number) =>
+      request<{ ok: boolean; added: number; removed: number; total: number }>(
+        `/publications/${publicationId}/issues/generate`,
+        { method: 'POST' },
+      ),
+    scan: (publicationId: number) =>
+      request<{ ok: boolean; scanned: number; matched: number; owned: number }>(
+        `/publications/${publicationId}/issues/scan`,
+        { method: 'POST' },
+      ),
+    searchMissing: (publicationId: number, maxGrabs = 10) =>
+      request<{ ok: boolean; missing: number; searched: number; grabbed: number }>(
+        `/publications/${publicationId}/issues/search-missing`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ max_grabs: maxGrabs }),
+        },
+      ),
+    update: (issueId: number, patch: { status?: IssueStatus; notes?: string; label?: string }) =>
+      request<Issue>(`/issues/${issueId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      }),
+    search: (issueId: number) =>
+      request<SearchResponse>(`/issues/${issueId}/search`, { method: 'POST' }),
+    grab: (issueId: number, release: Release, publicationId: number) =>
+      request<DownloadRecord>(`/issues/${issueId}/grab`, {
+        method: 'POST',
+        body: JSON.stringify({ publication_id: publicationId, release }),
+      }),
   },
 
   search: (query: string, categories = '') =>

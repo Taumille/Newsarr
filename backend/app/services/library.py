@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..models import DownloadRecord, Publication, TrackedStatus, utcnow
 from . import settings as settings_service
+from .issues import extract_date_from_filename, record_owned
 from .naming import apply_template, slugify
 
 logger = logging.getLogger(__name__)
@@ -110,6 +111,17 @@ def import_download(db: Session, record: DownloadRecord) -> DownloadRecord:
     record.progress = 100
     record.error_message = ""
     record.completed_at = record.completed_at or utcnow()
+
+    # Reconcile the dated issue catalog: this file now means "owned".
+    if publication is not None:
+        issue_day = record.publish_date.date() if record.publish_date else None
+        issue_day = (
+            issue_day
+            or extract_date_from_filename(target.name)
+            or datetime.strptime(date_str, "%Y-%m-%d").date()
+        )
+        record_owned(db, record, target, issue_day)
+
     db.commit()
     logger.info("Imported '%s' -> %s", record.title, target)
     return record

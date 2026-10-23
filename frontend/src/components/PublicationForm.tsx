@@ -3,6 +3,25 @@ import type { PublicationInput } from '../types';
 
 export const FORMATS = ['any', 'pdf', 'epub', 'mobi', 'cbz', 'cbr', 'djvu'];
 
+export const FREQUENCIES: { value: PublicationInput['frequency']; label: string }[] = [
+  { value: 'irregular', label: 'Irregular / unknown' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'biweekly', label: 'Every two weeks' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+];
+
+export const WEEKDAYS = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+
 export const emptyPublication: PublicationInput = {
   title: '',
   monitored: true,
@@ -13,6 +32,9 @@ export const emptyPublication: PublicationInput = {
   preferred_format: 'any',
   folder: '',
   cover_url: '',
+  frequency: 'irregular',
+  weekday: null,
+  start_date: null,
 };
 
 interface Props {
@@ -103,6 +125,53 @@ export default function PublicationForm({
 
       <div className="form-row">
         <div className="field">
+          <label htmlFor="frequency">Frequency</label>
+          <select
+            id="frequency"
+            value={values.frequency}
+            onChange={(e) => set('frequency', e.target.value as PublicationInput['frequency'])}
+          >
+            {FREQUENCIES.map((frequency) => (
+              <option key={frequency.value} value={frequency.value}>
+                {frequency.label}
+              </option>
+            ))}
+          </select>
+          <span className="hint">Used to generate the expected issue calendar.</span>
+        </div>
+        <div className="field">
+          <label htmlFor="start_date">Calendar start date</label>
+          <input
+            id="start_date"
+            type="date"
+            value={values.start_date ?? ''}
+            onChange={(e) => set('start_date', e.target.value || null)}
+          />
+          <span className="hint">e.g. 2020-01-01 — all issues since then are tracked.</span>
+        </div>
+      </div>
+
+      {(values.frequency === 'weekly' || values.frequency === 'biweekly') && (
+        <div className="field">
+          <label htmlFor="weekday">Publication day</label>
+          <select
+            id="weekday"
+            value={values.weekday ?? ''}
+            onChange={(e) => set('weekday', e.target.value === '' ? null : Number(e.target.value))}
+          >
+            <option value="">Use the start date's weekday</option>
+            {WEEKDAYS.map((day, index) => (
+              <option key={day} value={index}>
+                {day}
+              </option>
+            ))}
+          </select>
+          <span className="hint">For example: weekly on Wednesday.</span>
+        </div>
+      )}
+
+      <div className="form-row">
+        <div className="field">
           <label htmlFor="format">Preferred format</label>
           <select
             id="format"
@@ -125,6 +194,19 @@ export default function PublicationForm({
             placeholder="Defaults to the title"
           />
         </div>
+      </div>
+
+      <div className="field">
+        <label htmlFor="cover_url">Cover image URL (optional)</label>
+        <input
+          id="cover_url"
+          value={values.cover_url}
+          onChange={(e) => set('cover_url', e.target.value)}
+          placeholder="https://…/cover.jpg"
+        />
+        <span className="hint">
+          You can also upload an image from the publication page.
+        </span>
       </div>
 
       <div className="field">
