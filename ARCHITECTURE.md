@@ -257,7 +257,7 @@ A bare `/api/v1/health` endpoint is registered in `main.py`.
 - **`library`** chooses the file to import, moves it into the library, applies
   the naming template, and marks the matching issue owned.
 - **`issues`** owns the schedule algorithm, date parsing, status summaries,
-  folder scanning, per-issue search, and bulk gap search.
+  folder scanning, per-issue search, most-seeded selection, and bulk gap search.
 - **`autosearch`** contains the RSS and catch-up policies: relevance, de-dup,
   cutoff, preferred format, grab cap, and orchestration across publications.
 - **`settings`** reads and writes the key/value settings table, hides secrets
@@ -289,7 +289,7 @@ Redux/Zustand/Query cache.
 - **`components/CoverPanel.tsx`** uploads/removes a cover and chooses between the
   uploaded image and `cover_url`.
 - **`components/IssueLibrary.tsx`** owns issue filtering, status actions,
-  per-issue search results, and bulk missing search.
+  per-issue search results, auto-download, and bulk missing search.
 - **`pages/Queue.tsx`** polls the queue every 10 seconds and exposes sync,
   retry, remove, and diagnostics actions.
 - **`pages/Settings.tsx`** edits integrations/automation and runs connection
@@ -584,6 +584,20 @@ Date matching (`release_issue_date`) prefers a date parsed from the release
 title, because Prowlarr's `publishDate` may be an upload date. It falls back to
 the publish date. `release_matches_issue()` allows ±1 day.
 
+Auto-grab (`POST /issues/{id}/auto-grab`):
+
+1. requires the issue to still be `expected`; otherwise returns `409`,
+2. calls `search_for_issue()` for that date,
+3. calls `pick_most_seeded()`:
+   - only considers releases with a magnet or download URL when possible,
+   - chooses the highest `seeders` value (`None` sorts below zero),
+   - uses the newest publish date to break ties,
+4. grabs the winner with the explicit issue ID,
+5. returns `404` when no dated release exists and `502` on Prowlarr or client
+   errors.
+
+This is the backend for the per-issue **Auto-download** button.
+
 Bulk (`search_missing`):
 
 1. loads missing issues (`expected` with `issue_date <= today`), newest first,
@@ -734,6 +748,7 @@ directory:
 | `background_loop.py` | Background queue poll updates progress without a manual sync (poll forced to 1 s). |
 | `autosearch.py` | Relevance, de-duplication, cutoff, preferred format, grab cap. |
 | `issues.py` | Schedule dates (weekly/monthly), date parsing (including French), scan, cover upload/delete, status transitions, cascade deletion. |
+| `issue_auto_grab.py` | Most-seeded release selection and the per-issue auto-grab endpoint, including status guards. |
 
 Tests set `NEWSARR_DATA_DIR` **before** importing `app.main`, because config and
 the engine are initialized at import time.

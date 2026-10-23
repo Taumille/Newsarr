@@ -34,6 +34,8 @@ queue, and a library importer) but stays a small, readable standalone codebase.
   image URL).
 - **Find gaps** — scan the library folder to mark existing files as owned,
   search one missing issue by date, or search and grab all missing issues.
+- **One-click issue download** — **Auto-download** searches Prowlarr for a
+  specific issue and grabs the date-matched release with the most seeders.
 
 ### Acquisition
 - **Search Prowlarr** — aggregate search across every indexer configured in your
@@ -340,6 +342,9 @@ extensions are PDF, EPUB, MOBI, AZW3, CBZ, CBR, DJVU, ZIP, and RAR.
 - **Per issue: Search** — queries Prowlarr with the publication title and issue
   date, filters results to releases whose title or publish date matches the
   issue date within ±1 day, and lets you grab one.
+- **Per issue: Auto-download** — does the same date-matched search, then
+  automatically grabs the usable release with the **highest seeder count**
+  (newest wins ties). The button is only enabled for missing/upcoming issues.
 - **⤓ Search all missing** — searches once for the publication, matches releases
   to missing dates (newest first), and grabs up to the requested limit (10 from
   the UI). Release choice prefers the publication's preferred format, then
@@ -401,6 +406,7 @@ All endpoints are under `/api/v1`. Interactive OpenAPI docs are available at
 | POST | `/publications/{id}/issues/search-missing` | Search and grab missing issues. |
 | GET/PATCH | `/issues/{id}` | Read / update one issue (status, label, notes, file path). |
 | POST | `/issues/{id}/search` | Search Prowlarr for one dated issue. |
+| POST | `/issues/{id}/auto-grab` | Search and grab the most-seeded release for an issue. |
 | POST | `/issues/{id}/grab` | Grab a specific release for an issue. |
 | GET | `/search?query=` | Ad-hoc Prowlarr search. |
 | GET/POST | `/queue` | List the queue / grab a release. |
@@ -470,6 +476,7 @@ This runs, in order:
 | `tests/background_loop.py` | Background queue poll updates progress without a manual sync. |
 | `tests/autosearch.py` | Relevance, de-duplication, cutoff, and grab selection. |
 | `tests/issues.py` | Schedule generation, date parsing, folder scan, covers, statuses. |
+| `tests/issue_auto_grab.py` | Most-seeded selection, auto-grab endpoint, status guard. |
 
 Frontend checks:
 

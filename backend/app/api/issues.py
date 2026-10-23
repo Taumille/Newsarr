@@ -21,6 +21,7 @@ from ..schemas import (
 )
 from ..services.grab import GrabError, grab_release
 from ..services.issues import (
+    pick_most_seeded,
     scan_library,
     search_for_issue,
     search_missing,
@@ -182,3 +183,34 @@ async def grab_issue(
     except GrabError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return record
+
+
+@router.post("/issues/{issue_id}/auto-grab", response_model=DownloadRecordSchema)
+async def auto_grab_issue(issue_id: int, db: Session = Depends(get_db)):
+    """Search for one issue and grab the matching release with the most seeders."""
+    issue = _get_issue(db, issue_id)
+    if issue.status != IssueStatus.expected:
+        raise HTTPException(
+            status_code=409,
+            detail="Only missing or upcoming issues can be auto-downloaded",
+        )
+    publication = _get_publication(db, issue.publication_id)
+
+    try:
+        releases = await search_for_issue(db, publication, issue)
+    except ProwlarrError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    candidate = pick_most_seeded(releases)
+    if candidate is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No dated release found for {issue.issue_date.isoformat()}",
+        )
+
+    try:
+        return await grab_release(
+            db, candidate, issue.publication_id, issue_id=issue.id
+        )
+    except GrabError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

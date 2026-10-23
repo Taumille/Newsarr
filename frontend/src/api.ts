@@ -104,6 +104,8 @@ export const api = {
       }),
     search: (issueId: number) =>
       request<SearchResponse>(`/issues/${issueId}/search`, { method: 'POST' }),
+    autoGrab: (issueId: number) =>
+      request<DownloadRecord>(`/issues/${issueId}/auto-grab`, { method: 'POST' }),
     grab: (issueId: number, release: Release, publicationId: number) =>
       request<DownloadRecord>(`/issues/${issueId}/grab`, {
         method: 'POST',

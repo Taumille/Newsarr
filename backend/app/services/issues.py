@@ -461,6 +461,26 @@ def _pick_candidate(candidates: list[Release], publication: Publication) -> Rele
     return max(candidates, key=score)
 
 
+def pick_most_seeded(releases: list[Release]) -> Release | None:
+    """Pick the usable release with the most seeders (newest wins ties)."""
+    if not releases:
+        return None
+
+    # Prefer releases we can actually hand to the client. If none advertise a
+    # URL, let the grab attempt report the real error.
+    usable = [
+        release for release in releases if release.magnet_url or release.download_url
+    ] or releases
+
+    def score(release: Release) -> tuple[int, float]:
+        # Unknown seeder counts sort below a known zero.
+        seeders = release.seeders if release.seeders is not None else -1
+        published = release.publish_date.timestamp() if release.publish_date else 0.0
+        return (seeders, published)
+
+    return max(usable, key=score)
+
+
 async def search_for_issue(
     db: Session,
     publication: Publication,

@@ -176,6 +176,23 @@ export default function IssueLibrary({ publicationId, refreshKey = 0, onChanged 
     }
   };
 
+  const autoGrab = async (issue: Issue) => {
+    setActionBusy(`auto-${issue.id}`);
+    setError('');
+    setNotice('');
+    try {
+      const record = await api.issues.autoGrab(issue.id);
+      setNotice(`Auto-grabbed: ${record.title}`);
+      setSelected(null);
+      setReleases(null);
+      refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setActionBusy('');
+    }
+  };
+
   const grab = async (release: Release) => {
     if (!selected) return;
     setGrabbing(release.guid || release.title);
@@ -287,6 +304,18 @@ export default function IssueLibrary({ publicationId, refreshKey = 0, onChanged 
                         disabled={searchBusy || issue.status === 'owned'}
                       >
                         {searchBusy && selected?.id === issue.id ? 'Searching…' : 'Search'}
+                      </button>{' '}
+                      <button
+                        className="small primary"
+                        title="Search Prowlarr and grab the release with the most seeders"
+                        onClick={() => autoGrab(issue)}
+                        disabled={
+                          !!actionBusy || searchBusy || issue.status !== 'expected'
+                        }
+                      >
+                        {actionBusy === `auto-${issue.id}`
+                          ? 'Auto-downloading…'
+                          : 'Auto-download'}
                       </button>{' '}
                       {issue.status === 'owned' ? (
                         <button
