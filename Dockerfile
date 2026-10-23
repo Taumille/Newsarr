@@ -25,7 +25,7 @@ ARG PGID=1000
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    NEWSARR_DATA_DIR=/data \
+    NEWSARR_DATA_DIR=/etc/newsarr \
     NEWSARR_FRONTEND_DIR=/app/frontend/dist \
     NEWSARR_HOST=0.0.0.0 \
     NEWSARR_PORT=7878
@@ -41,11 +41,11 @@ COPY --from=frontend-build /build/frontend/dist /app/frontend/dist
 
 RUN groupadd --gid "${PGID}" newsarr \
     && useradd --uid "${PUID}" --gid "${PGID}" --create-home newsarr \
-    && mkdir -p /data \
-    && chown -R newsarr:newsarr /app /data
+    && mkdir -p /etc/newsarr \
+    && chown -R newsarr:newsarr /app /etc/newsarr
 
 USER newsarr
-VOLUME ["/data"]
+VOLUME ["/etc/newsarr"]
 EXPOSE 7878
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \

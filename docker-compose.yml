@@ -15,9 +15,9 @@ services:
     ports:
       - "${NEWSARR_HTTP_PORT:-7878}:7878"
     environment:
-      NEWSARR_DATA_DIR: /data
+      NEWSARR_DATA_DIR: /etc/newsarr
     volumes:
-      - newsarr-data:/data
+      - newsarr-data:/etc/newsarr
       # Mount a library/download directory here if you want imports outside the
       # named volume. Use the same path in qBittorrent and set the library root
       # in Newsarr's Settings page.

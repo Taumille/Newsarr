@@ -122,17 +122,17 @@ The runtime image:
 
 - runs as the unprivileged `newsarr` user (UID/GID 1000 by default, overridable
   through the `PUID`/`PGID` build args),
-- stores the database, covers, and default library under `/data`
-  (`VOLUME ["/data"]`),
+- stores the database, covers, and default library under `/etc/newsarr`
+  (`VOLUME ["/etc/newsarr"]`),
 - listens on `7878`,
 - runs Uvicorn without autoreload,
 - has a Python stdlib health check against `/api/v1/health`.
 
-`docker-compose.yml` builds the image, persists `/data` in the `newsarr-data`
-volume, enables `init` for signal reaping, and restarts unless stopped. The
-`NEWSARR_IMAGE` environment variable can point Compose at a registry image
-instead of a local build. There is no database server or extra process in the
-image.
+`docker-compose.yml` builds the image, persists `/etc/newsarr` in the
+`newsarr-data` volume, enables `init` for signal reaping, and restarts unless
+stopped. The `NEWSARR_IMAGE` environment variable can point Compose at a
+registry image instead of a local build. There is no database server or extra
+process in the image.
 
 `.github/workflows/docker-publish.yml` builds `linux/amd64` and `linux/arm64`
 images with Buildx and publishes them to `ghcr.io/<owner>/<repo>` on pushes to

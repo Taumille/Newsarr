@@ -121,7 +121,7 @@ docker compose up -d --build
 ```
 
 Open <http://localhost:7878>. Application data lives in the `newsarr-data` named
-volume (`/data` in the container). Stop it with:
+volume (`/etc/newsarr` in the container). Stop it with:
 
 ```bash
 docker compose down
@@ -149,14 +149,15 @@ PUID=1001 PGID=1001 docker compose up -d --build
 ```
 
 If the `newsarr-data` volume already exists, changing UID/GID does not rewrite
-its ownership; `chown` `/data` in a one-off container or recreate the volume.
+its ownership; `chown` `/etc/newsarr` in a one-off container or recreate the
+volume.
 
 To use a library or download directory outside the named volume, uncomment the
 bind mount in `docker-compose.yml`:
 
 ```yaml
 volumes:
-  - newsarr-data:/data
+  - newsarr-data:/etc/newsarr
   - /path/to/media:/media
 ```
 
@@ -171,7 +172,7 @@ You can also build and run without Compose:
 docker build -t newsarr .
 docker run -d --name newsarr \
   -p 7878:7878 \
-  -v newsarr-data:/data \
+  -v newsarr-data:/etc/newsarr \
   --restart unless-stopped \
   newsarr
 ```
