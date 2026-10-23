@@ -39,14 +39,22 @@ RUN pip install --upgrade pip \
 COPY backend/ ./
 COPY --from=frontend-build /build/frontend/dist /app/frontend/dist
 
-RUN groupadd --gid "${PGID}" newsarr \
+# gosu lets the entrypoint repair data-directory ownership as root and then
+# drop to the unprivileged `newsarr` user before starting the app.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid "${PGID}" newsarr \
     && useradd --uid "${PUID}" --gid "${PGID}" --create-home newsarr \
     && mkdir -p /etc/newsarr \
     && chown -R newsarr:newsarr /app /etc/newsarr
 
-USER newsarr
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/newsarr-entrypoint
+
 VOLUME ["/etc/newsarr"]
 EXPOSE 7878
+
+ENTRYPOINT ["newsarr-entrypoint"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('NEWSARR_PORT', '7878') + '/api/v1/health', timeout=4)"

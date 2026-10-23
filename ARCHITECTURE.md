@@ -120,8 +120,12 @@ proxies `/api` to port 7878.
 
 The runtime image:
 
-- runs as the unprivileged `newsarr` user (UID/GID 1000 by default, overridable
-  through the `PUID`/`PGID` build args),
+- starts through `docker-entrypoint.sh`, which repairs the ownership of the data
+  directory (a bind mount or a pre-existing volume can be owned by another UID,
+  which otherwise breaks SQLite with "unable to open database file") and then
+  drops privileges with `gosu`,
+- runs the app as the unprivileged `newsarr` user (UID/GID 1000 by default,
+  overridable through the `PUID`/`PGID` build args),
 - stores the database, covers, and default library under `/etc/newsarr`
   (`VOLUME ["/etc/newsarr"]`),
 - listens on `7878`,
@@ -151,6 +155,7 @@ Tags come from `docker/metadata-action`: branch, commit SHA, semver, and
 ├── README.md                    # user guide
 ├── ARCHITECTURE.md              # this document
 ├── Dockerfile                   # multi-stage frontend + runtime image
+├── docker-entrypoint.sh         # fix data-dir ownership, then drop privileges
 ├── docker-compose.yml           # single-service deployment
 ├── .dockerignore
 ├── .github/workflows/

@@ -141,16 +141,16 @@ docker compose logs -f newsarr
 docker inspect --format '{{.State.Health.Status}}' newsarr
 ```
 
-The container runs as UID/GID **1000** by default. If your bind mounts use
-different ownership, set `PUID`/`PGID` when building:
+The app runs as UID/GID **1000** by default. If your bind mounts use a different
+owner, set `PUID`/`PGID` when building:
 
 ```bash
 PUID=1001 PGID=1001 docker compose up -d --build
 ```
 
-If the `newsarr-data` volume already exists, changing UID/GID does not rewrite
-its ownership; `chown` `/etc/newsarr` in a one-off container or recreate the
-volume.
+On startup the entrypoint `chown`s the data directory (`/etc/newsarr`) to the
+app user before dropping privileges, so pre-existing volumes and bind mounts
+owned by another UID still work.
 
 To use a library or download directory outside the named volume, uncomment the
 bind mount in `docker-compose.yml`:
@@ -454,6 +454,7 @@ untouched.
 
 ```text
 Dockerfile                  # multi-stage frontend + Python runtime image
+docker-entrypoint.sh        # fix data-dir ownership, then drop privileges
 docker-compose.yml          # single-service deployment with a data volume
 .dockerignore
 .github/workflows/
