@@ -108,6 +108,30 @@ falls back to `index.html` for client-side routing. Paths beginning with `api/`
 are excluded and return JSON 404. During development, Vite serves the UI and
 proxies `/api` to port 7878.
 
+### Container image
+
+`Dockerfile` has two stages:
+
+1. `node:22-alpine` installs frontend dependencies with `npm ci`, builds the
+   Vite bundle, and discards `node_modules`;
+2. `python:3.12-slim` installs the pinned backend requirements, copies the
+   backend, and copies the built UI to `/app/frontend/dist`, which is the
+   default `frontend_dir` calculated by `config.py`.
+
+The runtime image:
+
+- runs as the unprivileged `newsarr` user (UID/GID 1000 by default, overridable
+  through the `PUID`/`PGID` build args),
+- stores the database, covers, and default library under `/data`
+  (`VOLUME ["/data"]`),
+- listens on `7878`,
+- runs Uvicorn without autoreload,
+- has a Python stdlib health check against `/api/v1/health`.
+
+`docker-compose.yml` builds the image, persists `/data` in the `newsarr-data`
+volume, enables `init` for signal reaping, and restarts unless stopped. There is
+no database server or extra process in the image.
+
 ---
 
 ## 4. Repository layout
@@ -117,6 +141,9 @@ proxies `/api` to port 7878.
 ├── Makefile                     # setup / backend / frontend / build / test
 ├── README.md                    # user guide
 ├── ARCHITECTURE.md              # this document
+├── Dockerfile                   # multi-stage frontend + runtime image
+├── docker-compose.yml           # single-service deployment
+├── .dockerignore
 ├── backend/
 │   ├── run.py                   # Uvicorn launcher
 │   ├── requirements.txt

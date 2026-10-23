@@ -5,11 +5,14 @@
 #   make frontend  run the Vite dev server on :5173
 #   make build     build the frontend for production (served by the API)
 #   make test      run the end-to-end smoke test
+#   make docker-up       build and start the Docker container
+#   make docker-build    build the Docker image
+#   make docker-down     stop the Docker container
 
 PY := backend/.venv/bin/python
 PIP := backend/.venv/bin/pip
 
-.PHONY: setup backend frontend build test
+.PHONY: setup backend frontend build test docker-build docker-up docker-down
 
 setup:
 	python3 -m venv backend/.venv
@@ -33,3 +36,12 @@ test:
 	cd backend && PYTHONPATH=. .venv/bin/python tests/background_loop.py
 	cd backend && PYTHONPATH=. .venv/bin/python tests/autosearch.py
 	cd backend && PYTHONPATH=. .venv/bin/python tests/issues.py
+
+docker-build:
+	docker build -t newsarr:latest .
+
+docker-up:
+	docker compose up -d --build
+
+docker-down:
+	docker compose down

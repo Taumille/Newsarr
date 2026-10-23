@@ -63,8 +63,8 @@ queue, and a library importer) but stays a small, readable standalone codebase.
 
 ## Prerequisites
 
-- Python 3.12 or newer
-- Node.js with a version supported by Vite 8
+- Python 3.12 or newer, or Docker with Compose v2
+- Node.js with a version supported by Vite 8 (only for local builds)
 - A reachable **Prowlarr** instance and API key
 - A reachable **qBittorrent** WebUI with its username/password
 - A library directory that the Newsarr process can write to
@@ -106,6 +106,74 @@ cd ../backend && .venv/bin/python run.py
 The API serves the built UI at <http://localhost:7878>. `run.py` enables
 autoreload; for a long-running deployment, run the same app with a production
 Uvicorn/Gunicorn configuration and put it behind your reverse proxy of choice.
+
+### Docker
+
+The image is a multi-stage build: Node builds the React frontend, then a slim
+Python runtime serves the API and the static UI from one process.
+
+```bash
+docker compose up -d --build
+# or: make docker-up
+```
+
+Open <http://localhost:7878>. Application data lives in the `newsarr-data` named
+volume (`/data` in the container). Stop it with:
+
+```bash
+docker compose down
+# or: make docker-down
+```
+
+To publish a different host port, set `NEWSARR_HTTP_PORT`:
+
+```bash
+NEWSARR_HTTP_PORT=8080 docker compose up -d
+```
+
+Logs and health:
+
+```bash
+docker compose logs -f newsarr
+docker inspect --format '{{.State.Health.Status}}' newsarr
+```
+
+The container runs as UID/GID **1000** by default. If your bind mounts use
+different ownership, set `PUID`/`PGID` when building:
+
+```bash
+PUID=1001 PGID=1001 docker compose up -d --build
+```
+
+If the `newsarr-data` volume already exists, changing UID/GID does not rewrite
+its ownership; `chown` `/data` in a one-off container or recreate the volume.
+
+To use a library or download directory outside the named volume, uncomment the
+bind mount in `docker-compose.yml`:
+
+```yaml
+volumes:
+  - newsarr-data:/data
+  - /path/to/media:/media
+```
+
+Then set **Library root** to `/media/library` in Settings. If qBittorrent also
+runs in Docker, mount the same host directory at the same container path in
+both containers and set qBittorrent's save path accordingly. The container's
+UID/GID must be able to read the completed downloads and write the library.
+
+You can also build and run without Compose:
+
+```bash
+docker build -t newsarr .
+docker run -d --name newsarr \
+  -p 7878:7878 \
+  -v newsarr-data:/data \
+  --restart unless-stopped \
+  newsarr
+```
+
+The image exposes port `7878` and includes a `/api/v1/health` health check.
 
 > On this machine the system npm may fail with
 > `Class extends value undefined is not a constructor or null`. If so, use the
@@ -299,6 +367,9 @@ untouched.
 ## Project layout
 
 ```text
+Dockerfile                  # multi-stage frontend + Python runtime image
+docker-compose.yml          # single-service deployment with a data volume
+.dockerignore
 backend/
   run.py                    # uvicorn launcher
   app/

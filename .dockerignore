@@ -1,0 +1,30 @@
+# Keep the build context small and avoid copying local state into the image.
+.git
+.gitignore
+.dockerignore
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+*.egg-info/
+backend/.venv/
+backend/venv/
+backend/tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+**/node_modules/
+frontend/dist/
+
+# Local data / databases
+*.db
+*.db-journal
+data/
+library/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
