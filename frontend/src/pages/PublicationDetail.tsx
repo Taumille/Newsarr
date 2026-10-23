@@ -113,6 +113,7 @@ export default function PublicationDetail() {
     title: publication.title,
     monitored: publication.monitored,
     keywords: publication.keywords,
+    exclude_keywords: publication.exclude_keywords,
     categories: publication.categories,
     language: publication.language,
     country: publication.country,

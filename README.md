@@ -24,8 +24,9 @@ queue, and a library importer) but stays a small, readable standalone codebase.
 ## Features
 
 ### Library and catalog
-- **Track publications** — title, keywords, Newznab categories, language,
-  country, preferred format, monitored flag, and a per-publication library folder.
+- **Track publications** — title, search keywords, exclusion keywords, Newznab
+  categories, language, country, preferred format, monitored flag, and a
+  per-publication library folder.
 - **Issue catalog** — describe a publishing schedule (daily, weekly on a chosen
   weekday, every two weeks, monthly, or quarterly) and a start date. Newsarr
   generates every expected issue and tracks **owned / missing / grabbed /
@@ -280,9 +281,9 @@ called with a matching `Referer`/`Origin` so CSRF/Host-header protection works.
 ## Using Newsarr
 
 1. Open **Settings** and configure Prowlarr, qBittorrent, and the library root.
-2. Go to **Add publication** and enter the title, search keywords, and Newznab
-   categories. For example: *Le Canard Enchaîné*, keyword `pdf`, category
-   `7010`.
+2. Go to **Add publication** and enter the title, search keywords, exclusion
+   keywords, and Newznab categories. For example: *Le Canard Enchaîné*, keyword
+   `pdf`, exclusion `magazine`, category `7010`.
 3. Optionally set a schedule: frequency `weekly`, publication day `Wednesday`,
    calendar start date `2020-01-01`. Newsarr generates every Wednesday since
    that date.
@@ -291,6 +292,29 @@ called with a matching `Referer`/`Origin` so CSRF/Host-header protection works.
 5. **Grab** a result. It appears in the **Queue**.
 6. The scheduler polls qBittorrent. When the download finishes, Newsarr imports
    the file into the library and marks the matching issue **owned**.
+
+## Excluding related titles
+
+Searching for **Le Figaro** also matches releases for *Le Figaro Magazine*,
+*Le Figaro Sport*, and similar spin-offs. Put the distinguishing words in the
+publication's **Exclude keywords** field:
+
+```text
+magazine, sport
+```
+
+Exclusions are comma-separated words or phrases. A release is rejected when
+its normalized title contains any of them. The rule applies everywhere Newsarr
+selects releases:
+
+- the publication's **Search** results,
+- per-issue **Search** and **Auto-download**,
+- **Search all missing**,
+- automatic **RSS sync** and **Auto search**.
+
+The global ad-hoc search (`/api/v1/search`) is not tied to a publication, so it
+does not apply exclusions. Add commas between terms; spaces inside a phrase are
+preserved, so `figaro magazine` is also a valid single exclusion.
 
 ## Issue catalog and owned/missing tracking
 
@@ -474,9 +498,9 @@ This runs, in order:
 | `tests/qbit_error_paths.py` | qBittorrent login failure messages (403, 401, bad credentials). |
 | `tests/torrent_hash.py` | Bencode decoder and info-hash maths. |
 | `tests/background_loop.py` | Background queue poll updates progress without a manual sync. |
-| `tests/autosearch.py` | Relevance, de-duplication, cutoff, and grab selection. |
+| `tests/autosearch.py` | Relevance, exclusions, de-duplication, cutoff, and grab selection. |
 | `tests/issues.py` | Schedule generation, date parsing, folder scan, covers, statuses. |
-| `tests/issue_auto_grab.py` | Most-seeded selection, auto-grab endpoint, status guard. |
+| `tests/issue_auto_grab.py` | Most-seeded selection, exclusion filtering, auto-grab endpoint, status guard. |
 
 Frontend checks:
 

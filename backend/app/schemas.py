@@ -16,6 +16,7 @@ class PublicationBase(BaseModel):
     title: str = Field(min_length=1, max_length=300)
     monitored: bool = True
     keywords: str = ""
+    exclude_keywords: str = ""
     categories: str = "7010,7020,7030"
     language: str = ""
     country: str = ""
@@ -37,6 +38,7 @@ class PublicationUpdate(BaseModel):
     title: str | None = None
     monitored: bool | None = None
     keywords: str | None = None
+    exclude_keywords: str | None = None
     categories: str | None = None
     language: str | None = None
     country: str | None = None

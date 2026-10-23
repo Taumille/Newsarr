@@ -1,7 +1,8 @@
 """Per-issue auto-grab test: pick the release with the most seeders.
 
 Spins up mock Prowlarr and qBittorrent servers, configures Newsarr, creates a
-weekly publication, and exercises POST /issues/{id}/auto-grab.
+weekly publication with title variants excluded, and exercises the publication
+search plus POST /issues/{id}/auto-grab.
 
 Run with:  PYTHONPATH=. .venv/bin/python tests/issue_auto_grab.py
 """
@@ -28,8 +29,36 @@ ISSUE_DATE = "2020-01-15"
 MAGNET = "magnet:?xt=urn:btih:" + "b" * 40
 RELEASES: list[dict] = [
     {
+        "guid": "excluded-magazine",
+        "title": "Le Figaro Magazine 2020-01-15",
+        "indexerId": 1,
+        "indexer": "Mock",
+        "size": 1000,
+        "downloadUrl": "",
+        "magnetUrl": "magnet:?xt=urn:btih:" + "c" * 40,
+        "infoUrl": "",
+        "publishDate": "2020-01-15T06:00:00Z",
+        "protocol": "torrent",
+        "categories": [{"id": 7010, "name": "Books/Mags"}],
+        "seeders": 500,
+    },
+    {
+        "guid": "excluded-sport",
+        "title": "Le Figaro Sport 2020-01-15",
+        "indexerId": 1,
+        "indexer": "Mock",
+        "size": 1000,
+        "downloadUrl": "",
+        "magnetUrl": "magnet:?xt=urn:btih:" + "d" * 40,
+        "infoUrl": "",
+        "publishDate": "2020-01-15T06:00:00Z",
+        "protocol": "torrent",
+        "categories": [{"id": 7010, "name": "Books/Mags"}],
+        "seeders": 400,
+    },
+    {
         "guid": "low",
-        "title": "Le Canard Enchaine 2020-01-15 PDF",
+        "title": "Le Figaro 2020-01-15 PDF",
         "indexerId": 1,
         "indexer": "Mock",
         "size": 1000,
@@ -43,7 +72,7 @@ RELEASES: list[dict] = [
     },
     {
         "guid": "high",
-        "title": "Le Canard Enchaine 2020-01-15 EPUB",
+        "title": "Le Figaro 2020-01-15 EPUB",
         "indexerId": 1,
         "indexer": "Mock",
         "size": 2000,
@@ -151,7 +180,8 @@ def main() -> None:
             r = client.post(
                 "/api/v1/publications",
                 json={
-                    "title": "Le Canard Enchaine",
+                    "title": "Le Figaro",
+                    "exclude_keywords": "magazine, sport",
                     "frequency": "weekly",
                     "weekday": 2,
                     "start_date": "2020-01-01",
@@ -160,6 +190,25 @@ def main() -> None:
             )
             check("publication created", r.status_code == 201, r.text)
             publication = r.json()
+
+            print("Publication search excludes title variants...")
+            r = client.post(f"/api/v1/publications/{publication['id']}/search")
+            titles = [release["title"] for release in r.json()["releases"]]
+            check(
+                "magazine excluded",
+                not any("magazine" in title.lower() for title in titles),
+                titles,
+            )
+            check(
+                "sport excluded",
+                not any("sport" in title.lower() for title in titles),
+                titles,
+            )
+            check(
+                "plain title kept",
+                any(title.startswith("Le Figaro 2020") for title in titles),
+                titles,
+            )
 
             r = client.get(
                 f"/api/v1/publications/{publication['id']}/issues"
@@ -172,7 +221,8 @@ def main() -> None:
             r = client.post(f"/api/v1/issues/{issue['id']}/auto-grab")
             check("auto-grab ok", r.status_code == 200, r.text)
             record = r.json()
-            check("grabbed most seeded release", record["title"].endswith("EPUB"), record)
+            check("grabbed most seeded allowed release", record["title"].endswith("EPUB"), record)
+            check("did not grab excluded variant", "magazine" not in record["title"].lower(), record)
             check("client add called once", STATE["adds"] == 1, STATE)
             check("stored correct hash", record["client_hash"] == "b" * 40, record)
 

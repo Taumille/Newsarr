@@ -26,6 +26,7 @@ export const emptyPublication: PublicationInput = {
   title: '',
   monitored: true,
   keywords: '',
+  exclude_keywords: '',
   categories: '7010,7020,7030',
   language: '',
   country: '',
@@ -100,6 +101,20 @@ export default function PublicationForm({
           />
           <span className="hint">Comma separated category ids (7010 = Books/Mags).</span>
         </div>
+      </div>
+
+      <div className="field">
+        <label htmlFor="exclude_keywords">Exclude keywords</label>
+        <input
+          id="exclude_keywords"
+          value={values.exclude_keywords}
+          onChange={(e) => set('exclude_keywords', e.target.value)}
+          placeholder="e.g. magazine, sport"
+        />
+        <span className="hint">
+          Comma separated words or phrases. Releases whose title contains one are
+          ignored by search, auto-download and automatic tracking.
+        </span>
       </div>
 
       <div className="form-row">

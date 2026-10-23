@@ -29,7 +29,7 @@ from .grab import GrabError, grab_release
 from .issues import sync_calendar
 from .prowlarr import ProwlarrClient, ProwlarrError
 from .qbittorrent import normalize_name
-from .search import build_query, parse_categories
+from .search import build_query, is_excluded, parse_categories
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,8 @@ def _title_tokens(title: str) -> list[str]:
 
 def _is_relevant(publication: Publication, release: Release) -> bool:
     """Cheap guard against indexers returning unrelated titles."""
+    if is_excluded(publication, release.title):
+        return False
     haystack = normalize_name(release.title)
     if not haystack:
         return False

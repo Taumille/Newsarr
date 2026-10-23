@@ -43,6 +43,7 @@ def _migrate_publications() -> None:
         "weekday": "INTEGER",
         "start_date": "DATE",
         "cover_path": "VARCHAR(1000) NOT NULL DEFAULT ''",
+        "exclude_keywords": "VARCHAR(500) NOT NULL DEFAULT ''",
     }
     with engine.begin() as conn:
         rows = conn.exec_driver_sql("PRAGMA table_info(publications)").fetchall()

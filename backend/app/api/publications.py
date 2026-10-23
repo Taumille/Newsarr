@@ -26,7 +26,7 @@ from ..services.clients import prowlarr_from_settings
 from ..services.issues import summaries, summary_for, sync_calendar
 from ..services.naming import slugify
 from ..services.prowlarr import ProwlarrError
-from ..services.search import build_query, parse_categories
+from ..services.search import build_query, filter_releases, parse_categories
 
 router = APIRouter(prefix="/api/v1/publications", tags=["publications"])
 
@@ -214,6 +214,7 @@ async def search_publication(
             build_query(publication, extra),
             categories=parse_categories(publication.categories),
         )
+        releases = filter_releases(publication, releases)
     except ProwlarrError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

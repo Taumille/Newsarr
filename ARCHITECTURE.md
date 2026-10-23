@@ -182,7 +182,7 @@ Tags come from `docker/metadata-action`: branch, commit SHA, semver, and
 │   │       ├── library.py       # choose file, move, name, mark issue owned
 │   │       ├── issues.py        # schedule, status, scan, gap search
 │   │       ├── autosearch.py    # RSS sync + catch-up search
-│   │       ├── search.py        # query/category helpers
+│   │       ├── search.py        # query/category helpers + exclusions
 │   │       ├── naming.py        # slugify/sanitize/naming template
 │   │       └── settings.py      # typed access to the settings table
 │   └── tests/                   # mock-backed integration and unit tests
@@ -258,8 +258,9 @@ A bare `/api/v1/health` endpoint is registered in `main.py`.
   the naming template, and marks the matching issue owned.
 - **`issues`** owns the schedule algorithm, date parsing, status summaries,
   folder scanning, per-issue search, most-seeded selection, and bulk gap search.
-- **`autosearch`** contains the RSS and catch-up policies: relevance, de-dup,
-  cutoff, preferred format, grab cap, and orchestration across publications.
+- **`autosearch`** contains the RSS and catch-up policies: relevance, exclusion
+  filtering, de-dup, cutoff, preferred format, grab cap, and orchestration
+  across publications.
 - **`settings`** reads and writes the key/value settings table, hides secrets
   from API responses, and exposes typed `as_bool`/`as_int` helpers.
 - **`clients`** constructs Prowlarr and qBittorrent clients from a settings map.
@@ -284,8 +285,8 @@ Redux/Zustand/Query cache.
 - **`pages/PublicationDetail.tsx`** loads the publication, renders the cover
   panel, edit form, and `IssueLibrary`; it bumps a refresh key when the schedule
   is saved so the issue list reloads.
-- **`components/PublicationForm.tsx`** contains the create/edit fields and the
-  frequency/weekday/start-date controls.
+- **`components/PublicationForm.tsx`** contains the create/edit fields,
+  exclusion keywords, and the frequency/weekday/start-date controls.
 - **`components/CoverPanel.tsx`** uploads/removes a cover and chooses between the
   uploaded image and `cover_url`.
 - **`components/IssueLibrary.tsx`** owns issue filtering, status actions,
@@ -319,7 +320,7 @@ linked issue with `Issue.download_id == record.id`.
 |---|---|
 | `id`, `title`, `slug` | Display identity; slug is derived with `slugify()`. |
 | `monitored` | Only monitored publications are auto-searched. |
-| `keywords`, `categories` | Search hints. Categories are comma-separated Newznab IDs. |
+| `keywords`, `exclude_keywords`, `categories` | Search hints. Categories are comma-separated Newznab IDs; exclusions are comma-separated title terms. |
 | `language`, `country` | Metadata only; not used as search filters server-side. |
 | `preferred_format` | `any`/`pdf`/`epub`/`mobi`/…; biases file choice and bulk gap selection. |
 | `folder` | Optional subfolder under `library_root`; defaults to the slug. |
@@ -377,7 +378,8 @@ There is no Alembic history. `init_db()`:
 2. runs `Base.metadata.create_all()` to create missing tables,
 3. runs `_migrate_publications()`, which uses `PRAGMA table_info` and
    idempotent `ALTER TABLE ... ADD COLUMN` statements for columns added after the
-   first release (`frequency`, `weekday`, `start_date`, `cover_path`).
+   first release (`frequency`, `weekday`, `start_date`, `cover_path`,
+   `exclude_keywords`).
 
 Adding a new **column** to an existing table therefore requires extending this
 helper (or introducing Alembic). New tables are handled by `create_all`.
@@ -554,6 +556,7 @@ For each monitored publication, `process_publication()`:
    - newest `DownloadRecord.publish_date` for that publication, if any,
    - otherwise `now - recent_hours/days`.
 5. selects candidate releases (`select_new_releases`):
+   - exclusion: reject titles containing any configured exclusion term,
    - relevance: at least one publication title token of length ≥ 4 appears in
      the normalized release title (if the publication title has no such token,
      everything is relevant),
@@ -577,8 +580,10 @@ Per-issue (`search_for_issue`):
 
 1. builds date-qualified queries using `YYYY-MM-DD`, `YYYYMMDD`, and
    `DD-MM-YYYY`, with title + keywords,
-2. if any query returns a date-matched release, returns those,
-3. otherwise performs the plain title/keyword query and filters by date.
+2. filters date-matched releases through the publication exclusions,
+3. if any query returns a date-matched, non-excluded release, returns those,
+4. otherwise performs the plain title/keyword query, filters by date and
+   exclusions, and returns the remainder.
 
 Date matching (`release_issue_date`) prefers a date parsed from the release
 title, because Prowlarr's `publishDate` may be an upload date. It falls back to
@@ -601,7 +606,7 @@ This is the backend for the per-issue **Auto-download** button.
 Bulk (`search_missing`):
 
 1. loads missing issues (`expected` with `issue_date <= today`), newest first,
-2. performs one Prowlarr search for the publication,
+2. performs one Prowlarr search for the publication and drops excluded titles,
 3. for each missing issue, filters releases matching that date,
 4. excludes releases already used in this run,
 5. picks the best candidate by `(preferred-format hit, seeders, publish date)`,
@@ -746,9 +751,9 @@ directory:
 | `qbit_error_paths.py` | 403 ban message, 401 CSRF/Host message, bad credentials. |
 | `torrent_hash.py` | Bencode decoding, magnet `btih` extraction, info-hash computation. |
 | `background_loop.py` | Background queue poll updates progress without a manual sync (poll forced to 1 s). |
-| `autosearch.py` | Relevance, de-duplication, cutoff, preferred format, grab cap. |
+| `autosearch.py` | Relevance, exclusions, de-duplication, cutoff, preferred format, grab cap. |
 | `issues.py` | Schedule dates (weekly/monthly), date parsing (including French), scan, cover upload/delete, status transitions, cascade deletion. |
-| `issue_auto_grab.py` | Most-seeded release selection and the per-issue auto-grab endpoint, including status guards. |
+| `issue_auto_grab.py` | Most-seeded selection, exclusion filtering, the per-issue auto-grab endpoint, and status guards. |
 
 Tests set `NEWSARR_DATA_DIR` **before** importing `app.main`, because config and
 the engine are initialized at import time.

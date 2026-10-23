@@ -76,6 +76,9 @@ class Publication(Base):
     # Search hints -----------------------------------------------------------
     # Extra words appended to the title when searching Prowlarr (e.g. "pdf").
     keywords: Mapped[str] = mapped_column(String(500), default="")
+    # Comma-separated words/phrases to reject from results
+    # (e.g. "magazine, sport" for a "Le Figaro" publication).
+    exclude_keywords: Mapped[str] = mapped_column(String(500), default="")
     # Comma separated Newznab category ids, e.g. "7010" (Books/Mags) or "7020".
     categories: Mapped[str] = mapped_column(String(200), default="7010,7020,7030")
     language: Mapped[str] = mapped_column(String(20), default="")

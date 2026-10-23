@@ -30,7 +30,7 @@ from . import settings as settings_service
 from .clients import prowlarr_from_settings
 from .grab import GrabError, grab_release
 from .naming import slugify
-from .search import build_query, parse_categories
+from .search import build_query, filter_releases, parse_categories
 
 logger = logging.getLogger(__name__)
 
@@ -500,12 +500,16 @@ async def search_for_issue(
     )
     for extra in date_forms:
         releases = await client.search(build_query(publication, extra), categories=categories)
-        matched = releases_for_issue(releases, issue.issue_date)
+        matched = filter_releases(
+            publication, releases_for_issue(releases, issue.issue_date)
+        )
         if matched:
             return matched
 
     releases = await client.search(base, categories=categories)
-    return releases_for_issue(releases, issue.issue_date)
+    return filter_releases(
+        publication, releases_for_issue(releases, issue.issue_date)
+    )
 
 
 async def search_missing(
@@ -532,8 +536,11 @@ async def search_missing(
 
     cfg = settings_service.get_map(db)
     client = prowlarr_from_settings(cfg)
-    releases = await client.search(
-        build_query(publication), categories=parse_categories(publication.categories)
+    releases = filter_releases(
+        publication,
+        await client.search(
+            build_query(publication), categories=parse_categories(publication.categories)
+        ),
     )
 
     grabbed = 0

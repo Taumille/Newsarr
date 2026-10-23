@@ -21,6 +21,7 @@ export interface Publication {
   slug: string;
   monitored: boolean;
   keywords: string;
+  exclude_keywords: string;
   categories: string;
   language: string;
   country: string;
@@ -44,6 +45,7 @@ export interface PublicationInput {
   title: string;
   monitored: boolean;
   keywords: string;
+  exclude_keywords: string;
   categories: string;
   language: string;
   country: string;

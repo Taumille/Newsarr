@@ -1,9 +1,10 @@
 """Tests the automatic-search / RSS-sync decision logic.
 
-Mock Prowlarr returns a mix of relevant, irrelevant and too-old releases; the
-test checks what gets grabbed, that grabs are de-duplicated, that the recent
-window and the max-grabs cap are respected, and that we never re-download an
-older issue once a newer one has been grabbed.
+Mock Prowlarr returns a mix of relevant, irrelevant, excluded and too-old
+releases; the test checks what gets grabbed, that exclusions are respected,
+that grabs are de-duplicated, that the recent window and the max-grabs cap are
+respected, and that we never re-download an older issue once a newer one has
+been grabbed.
 
 Run with: .venv/bin/python tests/autosearch.py
 """
@@ -160,17 +161,22 @@ def main() -> None:
         )
         pub = client.post(
             "/api/v1/publications",
-            json={"title": "The Guardian", "categories": "7010"},
+            json={
+                "title": "The Guardian",
+                "exclude_keywords": "magazine, sport",
+                "categories": "7010",
+            },
         ).json()
 
         new_issue = ("The Guardian 2026 issue PDF", "guid-new", rel(hours=1))
         mid_issue = ("The Guardian older issue PDF", "guid-mid", rel(days=10))
         old_issue = ("The Guardian ancient issue PDF", "guid-old", rel(days=60))
         irrelevant = ("Cooking Weekly 2026", "guid-irrelevant", rel(hours=1))
+        excluded = ("The Guardian Magazine 2026", "guid-excluded", rel(hours=1))
 
         # -- RSS sync: only very recent, relevant issues ---------------------
         print("RSS sync (72h window)...")
-        set_releases([new_issue, mid_issue, old_issue, irrelevant])
+        set_releases([new_issue, mid_issue, old_issue, irrelevant, excluded])
         clear_records()
         r = client.post("/api/v1/tasks/rss-sync").json()
         check("grabbed exactly the recent issue", r["grabbed"] == 1, r)
