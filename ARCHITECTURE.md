@@ -129,8 +129,17 @@ The runtime image:
 - has a Python stdlib health check against `/api/v1/health`.
 
 `docker-compose.yml` builds the image, persists `/data` in the `newsarr-data`
-volume, enables `init` for signal reaping, and restarts unless stopped. There is
-no database server or extra process in the image.
+volume, enables `init` for signal reaping, and restarts unless stopped. The
+`NEWSARR_IMAGE` environment variable can point Compose at a registry image
+instead of a local build. There is no database server or extra process in the
+image.
+
+`.github/workflows/docker-publish.yml` builds `linux/amd64` and `linux/arm64`
+images with Buildx and publishes them to `ghcr.io/<owner>/<repo>` on pushes to
+`main` and `v*` tags. It authenticates with the built-in `GITHUB_TOKEN` and the
+workflow's `packages: write` permission; pull requests build without pushing.
+Tags come from `docker/metadata-action`: branch, commit SHA, semver, and
+`latest`.
 
 ---
 
@@ -144,6 +153,8 @@ no database server or extra process in the image.
 ├── Dockerfile                   # multi-stage frontend + runtime image
 ├── docker-compose.yml           # single-service deployment
 ├── .dockerignore
+├── .github/workflows/
+│   └── docker-publish.yml       # GHCR multi-arch build and publish
 ├── backend/
 │   ├── run.py                   # Uvicorn launcher
 │   ├── requirements.txt

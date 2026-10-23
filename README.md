@@ -175,6 +175,61 @@ docker run -d --name newsarr \
 
 The image exposes port `7878` and includes a `/api/v1/health` health check.
 
+### Publishing to GitHub Container Registry
+
+`.github/workflows/docker-publish.yml` builds the image and publishes it to
+**GitHub Container Registry** using the repository's built-in `GITHUB_TOKEN`.
+No extra secrets are required.
+
+| Trigger | Published tags |
+|---|---|
+| Push to `main` | `main`, `sha-<commit>`, `latest` |
+| Push a tag like `v1.2.3` | `1.2.3`, `1.2`, `1`, `latest`, `sha-<commit>` |
+| Pull request | Build only, no push |
+| Manual workflow run | Same rules for the selected ref |
+
+The image name is the repository path lowercased:
+`ghcr.io/taumille/newsarr`.
+
+1. Push the workflow to `main`:
+
+   ```bash
+   git add .github/workflows/docker-publish.yml
+   git commit -m "Publish container image to GHCR"
+   git push
+   ```
+
+2. Watch the **Actions → Publish container** run. The package appears under the
+   repository's **Packages** section.
+
+3. New GHCR packages are private by default. To allow anonymous pulls, open the
+   package page → **Package settings** → **Danger Zone** → **Change visibility**
+   → **Public**. Keep it private if you prefer authenticated pulls.
+
+4. Pull the published image:
+
+   ```bash
+   docker pull ghcr.io/taumille/newsarr:latest
+   ```
+
+5. Use the registry image with Compose instead of a local build:
+
+   ```bash
+   export NEWSARR_IMAGE=ghcr.io/taumille/newsarr:latest
+   docker compose pull newsarr
+   docker compose up -d --no-build
+   ```
+
+If the workflow cannot push, check **Settings → Actions → General → Workflow
+permissions** and allow read/write permissions (the workflow explicitly requests
+`packages: write`). For private packages, authenticate before pulling:
+
+```bash
+echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
+```
+
+The token needs at least the `read:packages` scope.
+
 > On this machine the system npm may fail with
 > `Class extends value undefined is not a constructor or null`. If so, use the
 > bundled wrapper: `node ../tools/npm.js install` and
@@ -370,6 +425,8 @@ untouched.
 Dockerfile                  # multi-stage frontend + Python runtime image
 docker-compose.yml          # single-service deployment with a data volume
 .dockerignore
+.github/workflows/
+  docker-publish.yml        # build + publish to GitHub Container Registry
 backend/
   run.py                    # uvicorn launcher
   app/
