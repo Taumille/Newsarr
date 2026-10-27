@@ -18,6 +18,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 TMP = Path(tempfile.mkdtemp(prefix="newsarr-auto-"))
 os.environ["NEWSARR_DATA_DIR"] = str(TMP / "data")
@@ -52,7 +53,7 @@ def set_releases(items: list[tuple[str, str, str]]) -> None:
             "indexerId": 1,
             "indexer": "Mock",
             "size": 100,
-            "downloadUrl": DOWNLOAD_URL,
+            "downloadUrl": f"{DOWNLOAD_URL}?guid={guid}",
             "publishDate": published,
             "protocol": "torrent",
             "categories": [{"id": 7010, "name": "Books/Mags"}],
@@ -77,10 +78,24 @@ class MockProwlarr(BaseHTTPRequestHandler):
         if self.path.startswith("/api/v1/search"):
             self._json(RELEASES)
         elif self.path.startswith("/download"):
+            # Give each release its own torrent so info hashes are distinct,
+            # like real releases from an indexer.
+            query = parse_qs(urlparse(self.path).query)
+            guid = (query.get("guid") or ["x"])[0]
+            blob = _bencode(
+                {
+                    b"info": {
+                        b"length": 10,
+                        b"name": guid.encode(),
+                        b"piece length": 1,
+                        b"pieces": b"a" * 20,
+                    }
+                }
+            )
             self.send_response(200)
-            self.send_header("Content-Length", str(len(TORRENT_BYTES)))
+            self.send_header("Content-Length", str(len(blob)))
             self.end_headers()
-            self.wfile.write(TORRENT_BYTES)
+            self.wfile.write(blob)
         else:
             self.send_response(404)
             self.end_headers()

@@ -501,6 +501,7 @@ This runs, in order:
 | `tests/torrent_hash.py` | Bencode decoder and info-hash maths. |
 | `tests/background_loop.py` | Background queue poll updates progress without a manual sync. |
 | `tests/autosearch.py` | Relevance, exclusions, de-duplication, cutoff, and grab selection. |
+| `tests/import_dedupe.py` | Import is idempotent; no duplicate records or `(1)` files. |
 | `tests/issues.py` | Schedule generation, date parsing, folder scan, covers, statuses. |
 | `tests/issue_auto_grab.py` | Most-seeded selection, exclusion filtering, auto-grab endpoint, status guard. |
 
@@ -572,6 +573,23 @@ The library root must be writable by the Newsarr process, and qBittorrent's
 save path must be visible at the same location (or on a shared mount). If
 qBittorrent runs in another container, mount the same volume at the same path,
 or set a save path that both processes can see.
+
+### The same issue is imported twice (`Name (1).pdf`)
+
+Import is idempotent, so this should not happen any more:
+
+- **Import reuses an owned issue.** If the publication already owns the issue
+  date with a file on disk, a second release for the same date is marked
+  imported pointing at the existing file instead of writing a new copy.
+- **A torrent is only tracked once.** `grab_release` returns the existing
+  record when the info hash is already known, and a partial unique index on
+  `downloads.client_hash` enforces it at the database level.
+- **Sync is serialised.** A lock prevents the background scheduler, "Refresh
+  now" and "Re-check" from importing the same completed record concurrently.
+
+If you still have stale duplicates, delete the `(1)` file (and optionally the
+extra queue row) — Newsarr keeps the issue marked owned as long as one file for
+that date remains.
 
 ## Notes and limitations
 

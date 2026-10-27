@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import logging
 import shutil
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from ..models import DownloadRecord, Publication, TrackedStatus, utcnow
+from ..models import DownloadRecord, IssueStatus, Publication, TrackedStatus, utcnow
 from . import settings as settings_service
-from .issues import extract_date_from_filename, record_owned
+from .issues import extract_date_from_filename, find_issue, record_owned
 from .naming import apply_template, slugify
 
 logger = logging.getLogger(__name__)
@@ -91,6 +91,44 @@ def import_download(db: Session, record: DownloadRecord) -> DownloadRecord:
         date=date_str,
     )
     target = target_dir / f"{name}{source.suffix.lower()}"
+
+    # Reconcile the dated issue catalog: this file means "owned". Compute the
+    # issue date up front so we can also use it to stay idempotent.
+    issue_day: date | None = None
+    if publication is not None:
+        issue_day = record.publish_date.date() if record.publish_date else None
+        issue_day = (
+            issue_day
+            or extract_date_from_filename(name)
+            or datetime.strptime(date_str, "%Y-%m-%d").date()
+        )
+
+        # Idempotency: if this issue is already owned and its file is on disk,
+        # reuse it instead of writing a second copy (which is how the same issue
+        # ended up as "... (1).pdf" when a second release was grabbed).
+        existing = find_issue(db, publication.id, issue_day)
+        if (
+            existing is not None
+            and existing.status == IssueStatus.owned
+            and existing.file_path
+            and Path(existing.file_path).exists()
+        ):
+            record.imported_path = existing.file_path
+            record.status = TrackedStatus.imported
+            record.progress = 100
+            record.error_message = ""
+            record.completed_at = record.completed_at or utcnow()
+            record_owned(db, record, existing.file_path, issue_day)
+            db.commit()
+            logger.info(
+                "Issue %s of %r is already in the library; kept %s (skipped duplicate import of %r)",
+                issue_day,
+                publication.title,
+                existing.file_path,
+                record.title,
+            )
+            return record
+
     counter = 1
     while target.exists():
         target = target_dir / f"{name} ({counter}){source.suffix.lower()}"
@@ -112,14 +150,7 @@ def import_download(db: Session, record: DownloadRecord) -> DownloadRecord:
     record.error_message = ""
     record.completed_at = record.completed_at or utcnow()
 
-    # Reconcile the dated issue catalog: this file now means "owned".
     if publication is not None:
-        issue_day = record.publish_date.date() if record.publish_date else None
-        issue_day = (
-            issue_day
-            or extract_date_from_filename(target.name)
-            or datetime.strptime(date_str, "%Y-%m-%d").date()
-        )
         record_owned(db, record, target, issue_day)
 
     db.commit()

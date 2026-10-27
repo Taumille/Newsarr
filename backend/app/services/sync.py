@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from sqlalchemy import select
@@ -23,6 +24,11 @@ from .qbittorrent import QBittorrentError, fetch_torrent_hash, normalize_name
 from .torrent import is_info_hash, magnet_info_hash
 
 logger = logging.getLogger(__name__)
+
+# Only one sync may run at a time. The scheduler, POST /queue/sync and
+# POST /queue/{id}/retry can otherwise interleave: two passes could both see a
+# record as "completed" and import it twice (producing "... (1).pdf").
+_SYNC_LOCK = asyncio.Lock()
 
 ACTIVE = (TrackedStatus.queued, TrackedStatus.downloading)
 COMPLETE_STATES = {
@@ -52,7 +58,17 @@ async def resolve_record_hash(record: DownloadRecord) -> str:
 
 
 async def sync_queue(db: Session) -> None:
-    """Refresh active downloads and import anything that finished."""
+    """Refresh active downloads and import anything that finished.
+
+    Serialised with a lock so overlapping callers (background scheduler, the
+    manual refresh and retry endpoints) cannot import the same completed record
+    twice.
+    """
+    async with _SYNC_LOCK:
+        await _sync_queue(db)
+
+
+async def _sync_queue(db: Session) -> None:
     cfg = settings_service.get_map(db)
     records = (
         db.execute(select(DownloadRecord).where(DownloadRecord.status.in_(ACTIVE)))

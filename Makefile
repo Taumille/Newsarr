@@ -35,6 +35,7 @@ test:
 	cd backend && PYTHONPATH=. .venv/bin/python tests/torrent_hash.py
 	cd backend && PYTHONPATH=. .venv/bin/python tests/background_loop.py
 	cd backend && PYTHONPATH=. .venv/bin/python tests/autosearch.py
+	cd backend && PYTHONPATH=. .venv/bin/python tests/import_dedupe.py
 	cd backend && PYTHONPATH=. .venv/bin/python tests/issues.py
 	cd backend && PYTHONPATH=. .venv/bin/python tests/issue_auto_grab.py
 

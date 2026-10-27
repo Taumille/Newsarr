@@ -53,8 +53,33 @@ def _migrate_publications() -> None:
                 conn.exec_driver_sql(f"ALTER TABLE publications ADD COLUMN {name} {ddl}")
 
 
+def _migrate_downloads() -> None:
+    """Add a partial unique index on ``downloads.client_hash``.
+
+    SQLite treats NULLs as distinct and empty strings as a value, so the index
+    is restricted to non-empty hashes (usenet grabs have no hash). If an older
+    database already contains duplicate hashes the index cannot be created; we
+    log and carry on, since ``grab_release`` also guards against duplicates.
+    """
+    with engine.begin() as conn:
+        try:
+            conn.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_downloads_client_hash "
+                "ON downloads (client_hash) WHERE client_hash IS NOT NULL AND client_hash <> ''"
+            )
+        except Exception as exc:  # pragma: no cover - depends on existing data
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Could not create unique index on downloads.client_hash (duplicates "
+                "already present?): %s",
+                exc,
+            )
+
+
 def init_db() -> None:
     from . import models  # noqa: F401  (register mappings)
 
     Base.metadata.create_all(bind=engine)
     _migrate_publications()
+    _migrate_downloads()

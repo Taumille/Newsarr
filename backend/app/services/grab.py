@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,6 +19,8 @@ from ..schemas import Release
 from . import settings as settings_service
 from .clients import qbittorrent_from_settings
 from .qbittorrent import QBittorrentError
+
+logger = logging.getLogger(__name__)
 
 
 class GrabError(RuntimeError):
@@ -68,6 +72,31 @@ async def grab_release(
         info_hash = await client.add(release, save_path=save_path, category=category)
     except QBittorrentError as exc:
         raise GrabError(str(exc)) from exc
+
+    # Never track the same torrent twice. Two records with the same info hash
+    # would both import the same content, leaving a duplicate "... (1).pdf".
+    if info_hash:
+        existing = (
+            db.execute(
+                select(DownloadRecord).where(
+                    DownloadRecord.client_hash == info_hash,
+                    DownloadRecord.status != TrackedStatus.failed,
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if existing is not None:
+            if publication_id and existing.publication_id is None:
+                existing.publication_id = publication_id
+            db.commit()
+            logger.info(
+                "Release %r is already tracked as download %d (hash %s); not creating a duplicate",
+                release.title,
+                existing.id,
+                info_hash,
+            )
+            return existing
 
     if publication_id:
         publication = db.get(Publication, publication_id)
